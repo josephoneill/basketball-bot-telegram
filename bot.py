@@ -2,6 +2,7 @@ import logging
 import uuid
 import re
 from datetime import datetime
+from datetime import date
 
 from settings import TELEGRAM_TOKEN
 from telegram.ext import Updater
@@ -132,7 +133,7 @@ def get_formatted_input_message(msg):
 
 def get_scoreboard():
     # score_board = scoreboardv2.ScoreboardV2(game_date=str(date.today()))
-    score_board = scoreboardv2.ScoreboardV2(game_date="2019-04-15")
+    score_board = scoreboardv2.ScoreboardV2(game_date=str(date.today()))
     return score_board.get_dict()
 
 
