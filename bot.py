@@ -1,20 +1,21 @@
+import json
 import logging
-import uuid
 import re
-from datetime import datetime
+import urllib.request
+import uuid
 from datetime import date
+from datetime import datetime
+
+from nba_api.stats.endpoints import commonplayerinfo
+from nba_api.stats.endpoints import playercareerstats
+from nba_api.stats.endpoints import scoreboardv2
+from nba_api.stats.static import players
+from telegram import InlineQueryResultArticle, InputTextMessageContent
+from telegram.ext import CommandHandler
+from telegram.ext import InlineQueryHandler
+from telegram.ext import Updater
 
 from settings import TELEGRAM_TOKEN
-from telegram.ext import Updater
-from telegram.ext import CommandHandler
-from telegram import InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import InlineQueryHandler
-
-from nba_api.stats.endpoints import scoreboardv2
-from nba_api.stats.endpoints import boxscoretraditionalv2
-from nba_api.stats.endpoints import playercareerstats
-from nba_api.stats.static import players
-from nba_api.stats.endpoints import commonplayerinfo
 
 linescore_headers = {}
 nba_start_date = datetime(2019, 10, 22)
@@ -41,10 +42,7 @@ def season_stats_command_handler(update, context):
     index = 0
     for word in split_input_msg:
         if word.isdigit():
-            if index == 0:
-                send_invalid_message(update, context)
-                return
-            else:
+            if index != 0:
                 break
 
         formatted_word = " " + word if index > 0 else word
@@ -132,14 +130,18 @@ def get_formatted_input_message(msg):
 
 
 def get_scoreboard():
-    # score_board = scoreboardv2.ScoreboardV2(game_date=str(date.today()))
     score_board = scoreboardv2.ScoreboardV2(game_date=str(date.today()))
     return score_board.get_dict()
 
 
 def get_boxscore(game_id):
-    box_score = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id)
-    return box_score.get_dict()
+    # box_score = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id)
+    # return box_score.get_dict()
+
+    day = date.today().strftime("%Y%m%d")
+    box_score = urllib.request.urlopen(f"http://data.nba.net/json/cms/noseason/game/{day}/{game_id}/boxscore.json") \
+        .read()
+    return json.loads(box_score)
 
 
 def get_linescore(score_board):
@@ -151,11 +153,25 @@ def get_linescore(score_board):
     return [{'empty'}]
 
 
+def get_gameheader(score_board):
+    for item in score_board["resultSets"]:
+        if item["name"] == "GameHeader":
+            return item
+    return [{'empty'}]
+
+
 def get_current_teams_data(linescore):
     teams_data = list()
     for game_set in linescore["rowSet"]:
         teams_data.append(game_set)
     return teams_data
+
+
+def get_game_header_set_data(gameheader):
+    game_header_set = list()
+    for game_set in gameheader["rowSet"]:
+        game_header_set.append(game_set)
+    return game_header_set
 
 
 def find_players(player_name):
@@ -234,17 +250,18 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
         return dict(headers={}, data=player_stats)
 
     box_score = get_boxscore(game_id)
-    result_sets = box_score["resultSets"]
+    game = box_score["sports_content"]["game"]
 
-    for result_set in result_sets:
-        if result_set["name"] == "PlayerStats":
-            team_players_stats_set = result_set
-            break
+    team_players_stats_set = game["home"]["players"]
+    if game["home"]["id"] != player_team_id:
+        team_players_stats_set = game["visitor"]["players"]
 
-    headers = get_headers(team_players_stats_set)
+    headers = []
+    if len(team_players_stats_set) > 0:
+        headers = get_headers(team_players_stats_set[0])
 
-    for player_data in team_players_stats_set["rowSet"]:
-        if player_data[headers["PLAYER_ID"]] == player_id:
+    for player_data in team_players_stats_set:
+        if player_data[headers["person_id"]] == player_id:
             player_stats = player_data
             break
 
@@ -292,24 +309,37 @@ def get_formatted_player_career_stats(player_career_stats, player_name):
 
 # TODO: Combine this and the two functions above into one single function
 def get_formatted_player_current_stats(player_current_stats, player_name):
-    if player_current_stats["data"] == {}:
+    if player_current_stats["data"] == {} or player_current_stats["headers"] == []:
         return "Player is not currently playing"
 
     headers = player_current_stats["headers"]
     data = player_current_stats["data"]
 
-    points = data[headers["PTS"]]
-    rebounds = data[headers["REB"]]
-    assists = data[headers["AST"]]
+    points = data[headers["points"]]
 
-    field_goal_p = round(data[headers["FG_PCT"]] * 100)
-    three_point_p = round(data[headers["FG3_PCT"]] * 100)
-    free_throw_p = round(data[headers["FT_PCT"]] * 100)
+    o_rebounds = data[headers["rebounds_offensive"]]
+    d_rebounds = data[headers["rebounds_defensive"]]
 
-    given_minutes_str = data[headers["MIN"]]
-    minutes = int(given_minutes_str[0:given_minutes_str.find(':')])
-    seconds = int(given_minutes_str[given_minutes_str.find(':')+1:len(given_minutes_str)])
-    time_played = minutes if seconds <= 30 else minutes+1
+    rebounds = o_rebounds + d_rebounds
+
+    assists = data[headers["assists"]]
+
+    field_goal_a = data[headers["field_goals_attempted"]]
+    field_goal_m = data[headers["field_goals_made"]]
+    field_goal_p = round(field_goal_m / field_goal_a)
+
+    three_point_a = data[headers["three_pointers_attempted"]]
+    three_point_m = data[headers["three_pointers_made"]]
+    three_point_p = round(three_point_m / three_point_a)
+
+    free_throw_a = data[headers["free_throws_attempted"]]
+    free_throw_m = data[headers["free_throws_made"]]
+    free_throw_p = round(free_throw_m / free_throw_a)
+
+    minutes = int(data[headers["minutes"]])
+    seconds = int(data[headers["seconds"]])
+
+    time_played = minutes if seconds <= 30 else minutes + 1
 
     formatted_msg = f"{player_name} has {points}/{rebounds}/{assists} on " \
                     f"{field_goal_p}/{three_point_p}/{free_throw_p} shooting in {time_played} minutes"
@@ -327,16 +357,23 @@ def handle_none_or_mult_players_found(players_found, update, context):
         context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
 
-def create_inline_query_lists(teams_data, query):
+def create_inline_query_lists(gameheader, linescore, query):
+    gameheader_headers = get_headers(gameheader)
+    teams_data = get_current_teams_data(linescore)
+    game_header_set = get_game_header_set_data(gameheader)
+
     results = list()
+
     for i in range(0, int(len(teams_data) - 1), 2):
         team_a = teams_data[i]
         team_b = teams_data[i + 1]
 
+        start_time = game_header_set[int(i / 2)][gameheader_headers["GAME_STATUS_TEXT"]]
+
         team_a_name = team_a[linescore_headers["TEAM_NAME"]]
         team_b_name = team_b[linescore_headers["TEAM_NAME"]]
 
-        message = create_inline_request_message(team_a, team_b)
+        message = create_inline_request_message(start_time, team_a, team_b)
 
         if query.lower() in team_a_name.lower() or query.lower() in team_b_name.lower():
             results.append(
@@ -350,7 +387,7 @@ def create_inline_query_lists(teams_data, query):
     return results
 
 
-def create_inline_request_message(team_a, team_b):
+def create_inline_request_message(start_time, team_a, team_b):
     team_a_name = team_a[linescore_headers["TEAM_NAME"]]
     team_b_name = team_b[linescore_headers["TEAM_NAME"]]
 
@@ -359,6 +396,12 @@ def create_inline_request_message(team_a, team_b):
 
     team_a_score = team_a[linescore_headers["PTS"]]
     team_b_score = team_b[linescore_headers["PTS"]]
+
+    print(team_a_score)
+
+    if team_a_score is None or team_b_score in None:
+        message = f"The {team_a_name}-{team_b_name} game does not start until {start_time}"
+        return message
 
     if team_a_score > team_b_score:
         message = f"The {team_a_name} ({team_a_record}) are currently leading the {team_b_name} ({team_b_record})," \
@@ -394,15 +437,15 @@ def inline_teams_scores(update, context):
 
     score_board = get_scoreboard()
     linescore = get_linescore(score_board)
+    gameheader = get_gameheader(score_board)
 
-    teams_data = get_current_teams_data(linescore)
-    results = create_inline_query_lists(teams_data, query)
+    results = create_inline_query_lists(gameheader, linescore, query)
     context.bot.answer_inline_query(update.inline_query.id, results)
 
 
 def countdown_command_handler(update, context):
     days_left = days_between(nba_start_date, datetime.today())
-    context.bot.send_message(chat_id=update.message.chat_id, text=f"{days_left} days left until the 2019 season begins")
+    context.bot.send_message(chat_id=update.message.chat_id, text=f"{days_left} days left until the NBA Season Starts")
 
 
 def days_between(d1, d2):
