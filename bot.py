@@ -137,7 +137,6 @@ def get_scoreboard():
 def get_boxscore(game_id, game_date):
     game_date_dt_obj = datetime.strptime(game_date, "%b %d, %Y")
     day = datetime.strftime(game_date_dt_obj, "%Y%m%d")
-    print(f"http://data.nba.net/json/cms/noseason/game/{day}/{game_id}/boxscore.json")
     box_score = urllib.request.urlopen(f"http://data.nba.net/json/cms/noseason/game/{day}/{game_id}/boxscore.json") \
         .read()
     return json.loads(box_score)
@@ -256,15 +255,12 @@ def get_player_most_recent_game(player_id, teams_data, player_team_id):
 
 
 def get_player_current_game_stats(teams_data, player_id, player_team_id):
-    print(player_team_id)
     team_players_stats_set = {}
     player_stats = {}
     common_player_info = commonplayerinfo.CommonPlayerInfo(player_id=player_id).get_dict()["resultSets"][0]
     common_player_headers = get_headers(common_player_info)
     first_name = common_player_info["rowSet"][0][common_player_headers["FIRST_NAME"]]
     last_name = common_player_info["rowSet"][0][common_player_headers["LAST_NAME"]]
-    print(first_name)
-    print(last_name)
 
     game = get_player_most_recent_game(player_id, teams_data, player_team_id)
     game_id = game["game_id"]
@@ -286,7 +282,6 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
             player_stats = player_data
             break
 
-    print(player_stats)
 
     return dict(data=player_stats)
 
