@@ -424,7 +424,7 @@ def create_inline_request_message(start_time, team_a, team_b):
     team_a_score = team_a[linescore_headers["PTS"]]
     team_b_score = team_b[linescore_headers["PTS"]]
 
-    if team_a_score is None or team_b_score in None:
+    if team_a_score is None or team_b_score is None:
         message = f"The {team_a_name}-{team_b_name} game does not start until {start_time}"
         return message
 
