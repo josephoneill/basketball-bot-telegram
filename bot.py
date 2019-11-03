@@ -5,6 +5,7 @@ import urllib.request
 import uuid
 from datetime import date
 from datetime import datetime
+from pytz import timezone
 
 from nba_api.stats.endpoints import commonplayerinfo
 from nba_api.stats.endpoints import playercareerstats
@@ -130,7 +131,7 @@ def get_formatted_input_message(msg):
 
 
 def get_scoreboard():
-    score_board = scoreboardv2.ScoreboardV2(game_date=str(date.today()))
+    score_board = scoreboardv2.ScoreboardV2(game_date=str(get_current_eastern_time(False)))
     return score_board.get_dict()
 
 
@@ -205,7 +206,7 @@ def get_player_game_log(player_id):
 def get_player_reg_season_stats(career_stats, start_year, end_year):
     if not start_year.isdigit(): dict(headers={}, data={})
 
-    curr_year = datetime.now().year
+    curr_year = get_current_eastern_time(True).year
     season_id = ""
     if end_year != "":
         season_id = f"{start_year}-{end_year[-2:]}"
@@ -238,7 +239,7 @@ def get_player_reg_season_stats(career_stats, start_year, end_year):
 
 def get_player_most_recent_game(player_id, teams_data, player_team_id):
     game_id = 0
-    game_date = datetime.strftime(datetime.now(), "%b %d, %Y")
+    game_date = datetime.strftime(get_current_eastern_time(True), "%b %d, %Y")
 
     for team_data in teams_data:
         if team_data[linescore_headers["TEAM_ID"]] == player_team_id:
@@ -247,9 +248,10 @@ def get_player_most_recent_game(player_id, teams_data, player_team_id):
     if game_id == 0:
         player_game_log_result_set = get_player_game_log(player_id)["resultSets"][0]
         headers = get_headers(player_game_log_result_set)
-        # Return the game id of the first item in the rowSet, which will be the latest game
-        game_id = player_game_log_result_set["rowSet"][0][headers["Game_ID"]]
-        game_date = player_game_log_result_set["rowSet"][0][headers["GAME_DATE"]]
+        if len(player_game_log_result_set["rowSet"]) > 0:
+            # Return the game id of the first item in the rowSet, which will be the latest game
+            game_id = player_game_log_result_set["rowSet"][0][headers["Game_ID"]]
+            game_date = player_game_log_result_set["rowSet"][0][headers["GAME_DATE"]]
 
     return dict(game_id=game_id, game_date=game_date)
 
@@ -262,9 +264,9 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
     first_name = common_player_info["rowSet"][0][common_player_headers["FIRST_NAME"]]
     last_name = common_player_info["rowSet"][0][common_player_headers["LAST_NAME"]]
 
-    game = get_player_most_recent_game(player_id, teams_data, player_team_id)
-    game_id = game["game_id"]
-    game_date = game["game_date"]
+    most_recent_game = get_player_most_recent_game(player_id, teams_data, player_team_id)
+    game_id = most_recent_game["game_id"]
+    game_date = most_recent_game["game_date"]
 
     # If a current game could not be found
     if game_id == 0:
@@ -272,6 +274,11 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
 
     box_score = get_boxscore(game_id, game_date)
     game = box_score["sports_content"]["game"]
+
+    if game["home"]["players"] == '':
+        return dict(data={}, game_ongoing={})
+
+    game_ongoing = game["period_time"]["period_status"] != "Final"
 
     team_players_stats_set = game["home"]["players"]["player"]
     if game["home"]["id"] != str(player_team_id):
@@ -282,8 +289,7 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
             player_stats = player_data
             break
 
-
-    return dict(data=player_stats)
+    return dict(data=player_stats, game_ongoing=game_ongoing)
 
 
 def get_formatted_player_season_stats(player_season_stats, player_name):
@@ -331,6 +337,7 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
         return "Player is not currently playing"
 
     data = player_current_stats["data"]
+    game_ongoing = player_current_stats["game_ongoing"]
 
     points = data["points"]
 
@@ -357,8 +364,9 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
     seconds = int(data["seconds"])
 
     time_played = minutes if seconds <= 30 else minutes + 1
+    has_tense = "has" if game_ongoing else "had"
 
-    formatted_msg = f"{player_name} has {points}/{rebounds}/{assists} on " \
+    formatted_msg = f"{player_name} {has_tense} {points}/{rebounds}/{assists} on " \
                     f"{field_goal_p}/{three_point_p}/{free_throw_p} shooting in {time_played} minutes"
     return formatted_msg
 
@@ -462,6 +470,11 @@ def inline_teams_scores(update, context):
     results = create_inline_query_lists(gameheader, linescore, query)
     context.bot.answer_inline_query(update.inline_query.id, results)
 
+
+def get_current_eastern_time(now):
+    eastern = timezone('US/Eastern')
+    time = datetime.now() if now else datetime.today()
+    return eastern.localize(time)
 
 def days_between(d1, d2):
     return abs((d2 - d1).days)
