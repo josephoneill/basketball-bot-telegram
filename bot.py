@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-import urllib.request
+from urllib.request import Request, urlopen
 import uuid
 from datetime import date
 from datetime import datetime
@@ -138,8 +138,8 @@ def get_scoreboard():
 def get_boxscore(game_id, game_date):
     game_date_dt_obj = datetime.strptime(game_date, "%b %d, %Y")
     day = datetime.strftime(game_date_dt_obj, "%Y%m%d")
-    box_score = urllib.request.urlopen(f"http://data.nba.net/json/cms/noseason/game/{day}/{game_id}/boxscore.json") \
-        .read()
+    req = create_request(f"http://data.nba.net/json/cms/noseason/game/{day}/{game_id}/boxscore.json")
+    box_score = urlopen(req).read()
     return json.loads(box_score)
 
 
@@ -184,7 +184,9 @@ def find_players(player_name):
 
 
 def get_team_id_by_player(player_id):
-    common_player_info = commonplayerinfo.CommonPlayerInfo(player_id=player_id).get_dict()
+    req = create_request(f"https://stats.nba.com/stats/commonplayerinfo?LeagueID=&PlayerID={player_id}")
+    common_player_response = urlopen(req).read()
+    common_player_info = json.loads(common_player_response)
     result_set = common_player_info["resultSets"][0]
     cpi_headers = get_headers(result_set)
 
@@ -193,14 +195,31 @@ def get_team_id_by_player(player_id):
 
 
 def get_player_career_stats(player_id):
-    return playercareerstats.PlayerCareerStats(player_id=player_id).get_dict()
+    req = create_request(f"https://stats.nba.com/stats/playercareerstats?LeagueID=&PerMode=Totals&PlayerID={player_id}")
+    player_career_stats = urlopen(req).read()
+    return json.loads(player_career_stats)
+
+
+def get_player_common_info(player_id):
+    req = create_request(f"https://stats.nba.com/stats/commonplayerinfo?LeagueID=&PlayerID={player_id}")
+    player_common_info = urlopen(req).read()
+    return json.loads( player_common_info)
 
 
 def get_player_game_log(player_id):
     year = date.today().year
     next_year = year + 1
     season = f"{year}-{next_year % 100}"
-    return playergamelog.PlayerGameLog(player_id=player_id, season=season).get_dict()
+    req = create_request(f"https://stats.nba.com/stats/playergamelog?DateFrom=&DateTo=&LeagueID=&PlayerID={player_id}&Season={season}&SeasonType=Regular+Season")
+    player_game_log = urlopen(req).read()
+    return json.loads(player_game_log)
+
+
+def create_request(url):
+    req = Request(url)
+    req.add_header('User-Agent', 'Mozilla/5.0')
+    req.add_header('Referer', 'https://www.google.com/')
+    return req
 
 
 def get_player_reg_season_stats(career_stats, start_year, end_year):
@@ -259,7 +278,7 @@ def get_player_most_recent_game(player_id, teams_data, player_team_id):
 def get_player_current_game_stats(teams_data, player_id, player_team_id):
     team_players_stats_set = {}
     player_stats = {}
-    common_player_info = commonplayerinfo.CommonPlayerInfo(player_id=player_id).get_dict()["resultSets"][0]
+    common_player_info = get_player_common_info(player_id=player_id)["resultSets"][0]
     common_player_headers = get_headers(common_player_info)
     first_name = common_player_info["rowSet"][0][common_player_headers["FIRST_NAME"]]
     last_name = common_player_info["rowSet"][0][common_player_headers["LAST_NAME"]]
