@@ -30,7 +30,7 @@ dispatcher = updater.dispatcher
 
 
 def start(update, context):
-    context.bot.send_message(chat_id=update.message.chat_id, text="*Edgy starting message*")
+    context.bot.send_message(chat_id=update.message.chat_id, text=u'\U0001F920')
 
 
 def season_stats_command_handler(update, context):
