@@ -7,9 +7,6 @@ from datetime import date
 from datetime import datetime
 from pytz import timezone
 
-from nba_api.stats.endpoints import commonplayerinfo
-from nba_api.stats.endpoints import playercareerstats
-from nba_api.stats.endpoints import playergamelog
 from nba_api.stats.endpoints import scoreboardv2
 from nba_api.stats.static import players
 from telegram import InlineQueryResultArticle, InputTextMessageContent
@@ -20,6 +17,7 @@ from telegram.ext import Updater
 from settings import TELEGRAM_TOKEN
 
 linescore_headers = {}
+current_season = ""
 
 # setup logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -30,7 +28,10 @@ dispatcher = updater.dispatcher
 
 
 def start(update, context):
+    # This is the unicode for a cowboy :)
     context.bot.send_message(chat_id=update.message.chat_id, text=u'\U0001F920')
+    global current_season
+    current_season = get_current_season()
 
 
 def season_stats_command_handler(update, context):
@@ -207,9 +208,7 @@ def get_player_common_info(player_id):
 
 
 def get_player_game_log(player_id):
-    year = date.today().year
-    next_year = year + 1
-    season = f"{year}-{next_year % 100}"
+    season = current_season
     req = create_request(f"https://stats.nba.com/stats/playergamelog?DateFrom=&DateTo=&LeagueID=&PlayerID={player_id}&Season={season}&SeasonType=Regular+Season")
     player_game_log = urlopen(req).read()
     return json.loads(player_game_log)
@@ -229,12 +228,11 @@ def get_player_reg_season_stats(career_stats, start_year, end_year):
     season_id = ""
     if end_year != "":
         season_id = f"{start_year}-{end_year[-2:]}"
-    elif start_year == "":
-        ref_year = int(curr_year - 1)
-        season_id = f"{ref_year}-{start_year[-2:]}"
-    else:
+    elif start_year != "":
         ref_year = int(start_year) - 1
         season_id = f"{ref_year}-{start_year[-2:]}"
+    else:
+        season_id = current_season
 
     reg_season_totals_set = {}
     for result_set in career_stats["resultSets"]:
@@ -327,7 +325,9 @@ def get_formatted_player_season_stats(player_season_stats, player_name):
     rpg = round(rebounds / games_played, 1)
     apg = round(assists / games_played, 1)
 
-    formatted_msg = f"{player_name} averaged {ppg}/{rpg}/{apg} in the {season} season"
+    averaged_tense = "is averaging" if season == current_season else "averaged"
+
+    formatted_msg = f"{player_name} {averaged_tense} {ppg}/{rpg}/{apg} in the {season} season"
     return formatted_msg
 
 
@@ -461,6 +461,21 @@ def create_inline_request_message(start_time, team_a, team_b):
                   f" {team_a_score}-{team_b_score}"
 
     return message
+
+
+def get_current_season():
+    current_year = datetime.now().year
+    next_year_str = str(current_year + 1)
+
+    season = f"{current_year}-{next_year_str[-2:]}"
+
+    season_end = date(current_year, 7, 1)
+
+    if datetime.now().date() < season_end:
+        previous_year = current_year - 1
+        season = f"{previous_year}-{str(current_year)[-2:]}"
+
+    return season
 
 
 def set_linescore_headers(headers):
