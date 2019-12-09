@@ -505,10 +505,12 @@ def inline_teams_scores(update, context):
     context.bot.answer_inline_query(update.inline_query.id, results)
 
 
-def get_current_eastern_time(now):
+def get_current_eastern_time():
     eastern = timezone('US/Eastern')
-    time = datetime.now() if now else datetime.today()
-    return eastern.localize(time)
+    time = datetime.now(eastern)
+    print(time)
+    return time
+
 
 def days_between(d1, d2):
     return abs((d2 - d1).days)
