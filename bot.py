@@ -132,7 +132,7 @@ def get_formatted_input_message(msg):
 
 
 def get_scoreboard():
-    score_board = scoreboardv2.ScoreboardV2(game_date=str(get_current_eastern_time(False)))
+    score_board = scoreboardv2.ScoreboardV2(game_date=str(get_current_eastern_time()))
     return score_board.get_dict()
 
 
@@ -224,7 +224,7 @@ def create_request(url):
 def get_player_reg_season_stats(career_stats, start_year, end_year):
     if not start_year.isdigit(): dict(headers={}, data={})
 
-    curr_year = get_current_eastern_time(True).year
+    curr_year = get_current_eastern_time().year
     season_id = ""
     if end_year != "":
         season_id = f"{start_year}-{end_year[-2:]}"
@@ -256,7 +256,7 @@ def get_player_reg_season_stats(career_stats, start_year, end_year):
 
 def get_player_most_recent_game(player_id, teams_data, player_team_id):
     game_id = 0
-    game_date = datetime.strftime(get_current_eastern_time(True), "%b %d, %Y")
+    game_date = datetime.strftime(get_current_eastern_time(), "%b %d, %Y")
 
     for team_data in teams_data:
         if team_data[linescore_headers["TEAM_ID"]] == player_team_id:
