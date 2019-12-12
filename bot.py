@@ -508,7 +508,6 @@ def inline_teams_scores(update, context):
 def get_current_eastern_time():
     eastern = timezone('US/Eastern')
     time = datetime.now(eastern)
-    print(time)
     return time
 
 
