@@ -30,6 +30,7 @@ dispatcher = updater.dispatcher
 def start(update, context):
     # This is the unicode for a cowboy :)
     context.bot.send_message(chat_id=update.message.chat_id, text=u'\U0001F920')
+
     global current_season
     current_season = get_current_season()
 
@@ -74,6 +75,7 @@ def season_stats_command_handler(update, context):
     player_season_stats = get_player_reg_season_stats(player_career_stats, start_year, end_year)
 
     msg = get_formatted_player_season_stats(player_season_stats, player_name)
+
 
     context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
@@ -198,6 +200,7 @@ def get_team_id_by_player(player_id):
 def get_player_career_stats(player_id):
     req = create_request(f"https://stats.nba.com/stats/playercareerstats?LeagueID=&PerMode=Totals&PlayerID={player_id}")
     player_career_stats = urlopen(req).read()
+
     return json.loads(player_career_stats)
 
 
@@ -216,8 +219,12 @@ def get_player_game_log(player_id):
 
 def create_request(url):
     req = Request(url)
-    req.add_header('User-Agent', 'Mozilla/5.0')
-    req.add_header('Referer', 'https://www.google.com/')
+    req.add_header('User-Agent', 'PostmanRuntime/7.24.0')
+    req.add_header('Host', 'stats.nba.com')
+    req.add_header('Referer', 'https://stats.nba.com/')
+    req.add_header('Accept', '*/*')
+    req.add_header('x-nba-stats-origin', 'stats')
+    req.add_header('x-nba-stats-token', 'true')
     return req
 
 
