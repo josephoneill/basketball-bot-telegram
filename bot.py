@@ -76,7 +76,6 @@ def season_stats_command_handler(update, context):
 
     msg = get_formatted_player_season_stats(player_season_stats, player_name)
 
-
     context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
 
@@ -134,15 +133,19 @@ def get_formatted_input_message(msg):
 
 
 def get_scoreboard():
-    score_board = scoreboardv2.ScoreboardV2(game_date=str(get_current_eastern_time()))
-    return score_board.get_dict()
+    curr_date = str(get_current_eastern_time()).split()[0]
+    req = create_request(f"https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate={curr_date}&LeagueID=00")
+    score_board = urlopen(req).read()
+    return json.loads(score_board)
 
 
 def get_boxscore(game_id, game_date):
     game_date_dt_obj = datetime.strptime(game_date, "%b %d, %Y")
     day = datetime.strftime(game_date_dt_obj, "%Y%m%d")
-    req = create_request(f"http://data.nba.net/json/cms/noseason/game/{day}/{game_id}/boxscore.json")
+    req = create_request(
+        f"https://stats.nba.com/stats/boxscoretraditionalv2?EndPeriod=1&EndRange=0&GameID={game_id}&RangeType=0&StartPeriod=1&StartRange=0")
     box_score = urlopen(req).read()
+    print(box_score)
     return json.loads(box_score)
 
 
@@ -207,12 +210,13 @@ def get_player_career_stats(player_id):
 def get_player_common_info(player_id):
     req = create_request(f"https://stats.nba.com/stats/commonplayerinfo?LeagueID=&PlayerID={player_id}")
     player_common_info = urlopen(req).read()
-    return json.loads( player_common_info)
+    return json.loads(player_common_info)
 
 
 def get_player_game_log(player_id):
     season = current_season
-    req = create_request(f"https://stats.nba.com/stats/playergamelog?DateFrom=&DateTo=&LeagueID=&PlayerID={player_id}&Season={season}&SeasonType=Regular+Season")
+    req = create_request(
+        f"https://stats.nba.com/stats/playergamelog?DateFrom=&DateTo=&LeagueID=&PlayerID={player_id}&Season={season}&SeasonType=Regular+Season")
     player_game_log = urlopen(req).read()
     return json.loads(player_game_log)
 
@@ -296,24 +300,24 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
     if game_id == 0:
         return dict(headers={}, data=player_stats)
 
-    box_score = get_boxscore(game_id, game_date)
-    game = box_score["sports_content"]["game"]
+    box_score = get_boxscore(game_id, game_date)["resultSets"][0]
+    box_score_headers = get_headers(box_score)
 
-    if game["home"]["players"] == '':
-        return dict(data={}, game_ongoing={})
+    if len(box_score) == 0:
+        return dict(data={}, headers={}, game_ongoing={})
 
-    game_ongoing = game["period_time"]["period_status"] != "Final"
+    # TODO: Figure out how to determine this with new boxscore endpoint
+    game_ongoing = False
 
-    team_players_stats_set = game["home"]["players"]["player"]
-    if game["home"]["id"] != str(player_team_id):
-        team_players_stats_set = game["visitor"]["players"]["player"]
+    players_stats_set = box_score["rowSet"]
 
-    for player_data in team_players_stats_set:
-        if player_data["first_name"] == first_name and player_data["last_name"] == last_name:
+    for player_data in players_stats_set:
+        if player_data[box_score_headers["PLAYER_NAME"]] == f"{first_name} {last_name}":
             player_stats = player_data
             break
 
-    return dict(data=player_stats, game_ongoing=game_ongoing)
+    print(player_stats)
+    return dict(data=player_stats, headers=box_score_headers, game_ongoing=game_ongoing)
 
 
 def get_formatted_player_season_stats(player_season_stats, player_name):
@@ -363,33 +367,37 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
         return "Player is not currently playing"
 
     data = player_current_stats["data"]
+    headers = player_current_stats["headers"]
     game_ongoing = player_current_stats["game_ongoing"]
 
-    points = data["points"]
 
-    o_rebounds = int(data["rebounds_offensive"])
-    d_rebounds = int(data["rebounds_defensive"])
+    points = data[headers["PTS"]]
+
+    # If points is null, game hasn't started
+    if points is None:
+        return "Game has not started yet"
+
+    print(data[headers["PTS"]])
+    o_rebounds = safe_int(data[headers["OREB"]])
+    d_rebounds = safe_int(data[headers["DREB"]])
 
     rebounds = o_rebounds + d_rebounds
 
-    assists = data["assists"]
+    assists = safe_int(data[headers["AST"]])
 
-    field_goal_a = int(data["field_goals_attempted"])
-    field_goal_m = int(data["field_goals_made"])
+    field_goal_a = safe_int(data[headers["FGA"]])
+    field_goal_m = safe_int(data[headers["FGM"]])
     field_goal_p = safe_stat_percentage(field_goal_m, field_goal_a)
 
-    three_point_a = int(data["three_pointers_attempted"])
-    three_point_m = int(data["three_pointers_made"])
+    three_point_a = safe_int(data[headers["FG3A"]])
+    three_point_m = safe_int(data[headers["FG3M"]])
     three_point_p = safe_stat_percentage(three_point_m, three_point_a)
 
-    free_throw_a = int(data["free_throws_attempted"])
-    free_throw_m = int(data["free_throws_made"])
+    free_throw_a = safe_int(data[headers["FTA"]])
+    free_throw_m = safe_int(data[headers["FTM"]])
     free_throw_p = safe_stat_percentage(free_throw_m, free_throw_a)
 
-    minutes = int(data["minutes"])
-    seconds = int(data["seconds"])
-
-    time_played = minutes if seconds <= 30 else minutes + 1
+    time_played = data[headers["MIN"]]
     has_tense = "has" if game_ongoing else "had"
 
     formatted_msg = f"{player_name} {has_tense} {points}/{rebounds}/{assists} on " \
@@ -411,6 +419,13 @@ def handle_none_or_mult_players_found(players_found, update, context):
 def safe_stat_percentage(a, b):
     if b == 0: return 0
     return round(a / b * 100)
+
+
+def safe_int(a):
+    if a is None or not (isinstance(a, (int, float, complex)) and not isinstance(a, bool)):
+        return 0
+    else:
+        return int(a)
 
 
 def create_inline_query_lists(gameheader, linescore, query):
