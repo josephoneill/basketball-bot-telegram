@@ -141,11 +141,12 @@ def get_scoreboard():
 
 def get_boxscore(game_id, game_date):
     game_date_dt_obj = datetime.strptime(game_date, "%b %d, %Y")
+    api_formatted_date = game_date_dt_obj.strftime('%Y%m%d')
     day = datetime.strftime(game_date_dt_obj, "%Y%m%d")
     req = create_request(
-        f"https://stats.nba.com/stats/boxscoretraditionalv2?EndPeriod=1&EndRange=0&GameID={game_id}&RangeType=0&StartPeriod=1&StartRange=0")
+        f"https://data.nba.net/json/cms/noseason/game/{api_formatted_date}/{game_id}/boxscore.json",
+        'data.nba.net', referer='https://data.nba.net/')
     box_score = urlopen(req).read()
-    print(box_score)
     return json.loads(box_score)
 
 
@@ -221,11 +222,11 @@ def get_player_game_log(player_id):
     return json.loads(player_game_log)
 
 
-def create_request(url):
+def create_request(url, host='stats.nba.com', referer='https://stats.nba.com/'):
     req = Request(url)
     req.add_header('User-Agent', 'PostmanRuntime/7.24.0')
-    req.add_header('Host', 'stats.nba.com')
-    req.add_header('Referer', 'https://stats.nba.com/')
+    req.add_header('Host', host)
+    req.add_header('Referer', referer)
     req.add_header('Accept', '*/*')
     req.add_header('x-nba-stats-origin', 'stats')
     req.add_header('x-nba-stats-token', 'true')
@@ -289,6 +290,7 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
     player_stats = {}
     common_player_info = get_player_common_info(player_id=player_id)["resultSets"][0]
     common_player_headers = get_headers(common_player_info)
+    team_nickname = common_player_info["rowSet"][0][common_player_headers["TEAM_NAME"]]
     first_name = common_player_info["rowSet"][0][common_player_headers["FIRST_NAME"]]
     last_name = common_player_info["rowSet"][0][common_player_headers["LAST_NAME"]]
 
@@ -300,24 +302,27 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
     if game_id == 0:
         return dict(headers={}, data=player_stats)
 
-    box_score = get_boxscore(game_id, game_date)["resultSets"][0]
-    box_score_headers = get_headers(box_score)
+    box_score = get_boxscore(game_id, game_date)["sports_content"]["game"]
+
+    # box_score_headers = get_headers(box_score)
+    # print(box_score_headers)
+
+    home_player = box_score["home"]["nickname"] == team_nickname
 
     if len(box_score) == 0:
         return dict(data={}, headers={}, game_ongoing={})
 
     # TODO: Figure out how to determine this with new boxscore endpoint
-    game_ongoing = False
+    game_ongoing = box_score["recapAvailable"] == "0"
 
-    players_stats_set = box_score["rowSet"]
+    players_stats_set = box_score["home" if home_player else "visitor"]["players"]["player"]
 
     for player_data in players_stats_set:
-        if player_data[box_score_headers["PLAYER_NAME"]] == f"{first_name} {last_name}":
+        if player_data["first_name"] == f"{first_name}" and player_data["last_name"] == f"{last_name}":
             player_stats = player_data
             break
 
-    print(player_stats)
-    return dict(data=player_stats, headers=box_score_headers, game_ongoing=game_ongoing)
+    return dict(data=player_stats, game_ongoing=game_ongoing)
 
 
 def get_formatted_player_season_stats(player_season_stats, player_name):
@@ -367,37 +372,36 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
         return "Player is not currently playing"
 
     data = player_current_stats["data"]
-    headers = player_current_stats["headers"]
     game_ongoing = player_current_stats["game_ongoing"]
 
-
-    points = data[headers["PTS"]]
+    points = data["points"]
 
     # If points is null, game hasn't started
     if points is None:
         return "Game has not started yet"
 
-    print(data[headers["PTS"]])
-    o_rebounds = safe_int(data[headers["OREB"]])
-    d_rebounds = safe_int(data[headers["DREB"]])
+    o_rebounds = safe_int(data["rebounds_offensive"])
+    d_rebounds = safe_int(data["rebounds_defensive"])
 
     rebounds = o_rebounds + d_rebounds
 
-    assists = safe_int(data[headers["AST"]])
+    assists = safe_int(data["assists"])
 
-    field_goal_a = safe_int(data[headers["FGA"]])
-    field_goal_m = safe_int(data[headers["FGM"]])
+    field_goal_a = safe_int(data["field_goals_attempted"])
+    field_goal_m = safe_int(data["field_goals_made"])
     field_goal_p = safe_stat_percentage(field_goal_m, field_goal_a)
 
-    three_point_a = safe_int(data[headers["FG3A"]])
-    three_point_m = safe_int(data[headers["FG3M"]])
+    three_point_a = safe_int(data["three_pointers_attempted"])
+    three_point_m = safe_int(data["three_pointers_made"])
     three_point_p = safe_stat_percentage(three_point_m, three_point_a)
 
-    free_throw_a = safe_int(data[headers["FTA"]])
-    free_throw_m = safe_int(data[headers["FTM"]])
+    free_throw_a = safe_int(data["free_throws_attempted"])
+    free_throw_m = safe_int(data["free_throws_made"])
     free_throw_p = safe_stat_percentage(free_throw_m, free_throw_a)
 
-    time_played = data[headers["MIN"]]
+    minutes_played = data["minutes"]
+    seconds_played = data["seconds"]
+    time_played = f"{minutes_played}:{seconds_played}"
     has_tense = "has" if game_ongoing else "had"
 
     formatted_msg = f"{player_name} {has_tense} {points}/{rebounds}/{assists} on " \
@@ -422,7 +426,7 @@ def safe_stat_percentage(a, b):
 
 
 def safe_int(a):
-    if a is None or not (isinstance(a, (int, float, complex)) and not isinstance(a, bool)):
+    if a is None or not (isinstance(a, (int, float, complex, str)) and not isinstance(a, bool)):
         return 0
     else:
         return int(a)
