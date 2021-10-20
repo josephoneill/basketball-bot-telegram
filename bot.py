@@ -275,12 +275,14 @@ def get_player_most_recent_game(player_id, teams_data, player_team_id):
             game_id = team_data[linescore_headers["GAME_ID"]]
 
     if game_id == 0:
-        player_game_log_result_set = get_player_game_log(player_id)["resultSets"][0]
+        player_game_log_result = get_player_game_log(player_id)
+        player_game_log_result_set = player_game_log_result["resultSets"][0]
         headers = get_headers(player_game_log_result_set)
         if len(player_game_log_result_set["rowSet"]) > 0:
             # Return the game id of the first item in the rowSet, which will be the latest game
             game_id = player_game_log_result_set["rowSet"][0][headers["Game_ID"]]
             game_date = player_game_log_result_set["rowSet"][0][headers["GAME_DATE"]]
+
 
     return dict(game_id=game_id, game_date=game_date)
 
@@ -304,9 +306,6 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
 
     box_score = get_boxscore(game_id, game_date)["sports_content"]["game"]
 
-    # box_score_headers = get_headers(box_score)
-    # print(box_score_headers)
-
     home_player = box_score["home"]["nickname"] == team_nickname
 
     if len(box_score) == 0:
@@ -314,6 +313,9 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
 
     # TODO: Figure out how to determine this with new boxscore endpoint
     game_ongoing = box_score["recapAvailable"] == "0"
+
+    if len(box_score["home" if home_player else "visitor"]["players"]) == 0:
+        return dict(data={}, headers={}, game_ongoing={})
 
     players_stats_set = box_score["home" if home_player else "visitor"]["players"]["player"]
 
