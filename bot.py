@@ -5,6 +5,8 @@ from urllib.request import Request, urlopen
 import uuid
 from datetime import date
 from datetime import datetime
+
+import telegram
 from pytz import timezone
 
 from nba_api.stats.endpoints import scoreboardv2
@@ -13,6 +15,7 @@ from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import CommandHandler
 from telegram.ext import InlineQueryHandler
 from telegram.ext import Updater
+from telegram.ext import CallbackQueryHandler
 
 from settings import TELEGRAM_TOKEN
 
@@ -35,7 +38,7 @@ def start(update, context):
     current_season = get_current_season()
 
 
-def season_stats_command_handler(update, context):
+def season_stats_command_handler(update, context, player_id=-1):
     if update.message is None:
         return
 
@@ -60,10 +63,10 @@ def season_stats_command_handler(update, context):
     if len(split_input_msg) - index >= 2:
         end_year = split_input_msg[index + 1]
 
-    players_found = find_players(player_name_input)
+    players_found = find_players(player_name_input if player_id == -1 else player_id)
 
     if len(players_found) != 1:
-        handle_none_or_mult_players_found(players_found, update, context)
+        handle_none_or_mult_players_found(players_found, update, context, 'season_stats')
         return
 
     player = players_found[0]
@@ -79,12 +82,12 @@ def season_stats_command_handler(update, context):
     context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
 
-def career_stats_command_handler(update, context):
+def career_stats_command_handler(update, context, player_id=-1):
     formatted_message = get_formatted_input_message(update.message.text)
-    players_found = find_players(formatted_message)
+    players_found = find_players(formatted_message if player_id == -1 else player_id)
 
     if len(players_found) != 1:
-        handle_none_or_mult_players_found(players_found, update, context)
+        handle_none_or_mult_players_found(players_found, update, context, "career_stats")
         return
 
     player = players_found[0]
@@ -105,12 +108,12 @@ def career_stats_command_handler(update, context):
     context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
 
-def current_stats_command_handler(update, context):
+def current_stats_command_handler(update, context, player_id=-1):
     formatted_message = get_formatted_input_message(update.message.text)
-    players_found = find_players(formatted_message)
+    players_found = find_players(formatted_message if player_id == -1 else player_id)
 
     if len(players_found) != 1:
-        handle_none_or_mult_players_found(players_found, update, context)
+        handle_none_or_mult_players_found(players_found, update, context, "current_stats")
         return
 
     player = players_found[0]
@@ -125,6 +128,21 @@ def current_stats_command_handler(update, context):
     player_current_stats = get_player_current_game_stats(teams_data, player_id, team_id)
     msg = get_formatted_player_current_stats(player_current_stats, player_name)
     context.bot.send_message(chat_id=update.message.chat_id, text=msg)
+
+
+def callback_query_keyboard_handler(update, context):
+    callback_data = [s.strip() for s in update.callback_query.data.split(',')]
+    player_id = callback_data[0].split('=')[1]
+    handler = callback_data[1].split('=')[1]
+
+    context.bot.editMessageReplyMarkup(chat_id=update.callback_query.message.chat.id, message_id=update.callback_query.message.message_id, reply_markup=None)
+
+    if handler == "current_stats":
+        current_stats_command_handler(update.callback_query, context, player_id)
+    elif handler == "career_stats":
+        career_stats_command_handler(update.callback_query, context, player_id)
+    elif handler == "season_stats":
+        season_stats_command_handler(update.callback_query, context, player_id)
 
 
 def get_formatted_input_message(msg):
@@ -402,8 +420,8 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
     free_throw_p = safe_stat_percentage(free_throw_m, free_throw_a)
 
     minutes_played = data["minutes"]
-    seconds_played = data["seconds"]
-    time_played = f"{minutes_played}:{seconds_played}"
+    seconds_played = int(data["seconds"])
+    time_played = f"{minutes_played}:{seconds_played:02d}"
     has_tense = "has" if game_ongoing else "had"
 
     formatted_msg = f"{player_name} {has_tense} {points}/{rebounds}/{assists} on " \
@@ -411,16 +429,25 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
     return formatted_msg
 
 
-def handle_none_or_mult_players_found(players_found, update, context):
+def handle_none_or_mult_players_found(players_found, update, context, requesting_command_name):
     if len(players_found) == 0:
         send_player_not_found_message(update, context)
     else:
-        msg = "Multiple results found. Please try again with the desired player id.\n"
+        msg = "Please select a player.\n"
+        keyboard = []
+
         for player_found in players_found:
-            msg += f"{player_found['full_name']}; id={player_found['id']}\n"
+            keyboard.append([telegram.InlineKeyboardButton(
+                text=player_found['full_name'],
+                callback_data=f"id={player_found['id']}, code={requesting_command_name}")]
+            )
 
-        context.bot.send_message(chat_id=update.message.chat_id, text=msg)
+        reply_markup = telegram.InlineKeyboardMarkup(
+            inline_keyboard=keyboard,
+            one_time_keyboard=True
+        )
 
+        context.bot.send_message(chat_id=update.message.chat_id, text=msg, reply_markup=reply_markup)
 
 def safe_stat_percentage(a, b):
     if b == 0: return 0
@@ -567,6 +594,9 @@ dispatcher.add_handler(career_stats_handler)
 
 current_stats_handler = CommandHandler('currentstats', current_stats_command_handler)
 dispatcher.add_handler(current_stats_handler)
+
+callback_query_handler = CallbackQueryHandler(callback_query_keyboard_handler)
+dispatcher.add_handler(callback_query_handler)
 
 inline_scores_handler = InlineQueryHandler(inline_teams_scores)
 dispatcher.add_handler(inline_scores_handler)
