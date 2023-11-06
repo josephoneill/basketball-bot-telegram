@@ -545,7 +545,7 @@ def get_headers(result_set):
     return headers
 
 
-def inline_teams_scores(update, context):
+async def inline_teams_scores(update, context):
     query = update.inline_query.query
     if not query:
         return
@@ -555,7 +555,16 @@ def inline_teams_scores(update, context):
     gameheader = get_gameheader(score_board)
 
     results = create_inline_query_lists(gameheader, linescore, query)
-    context.bot.answer_inline_query(update.inline_query.id, results)
+    if len(results) == 0:
+        results.append(
+        InlineQueryResultArticle(
+            id=uuid.uuid4(),
+            title=f"No current games",
+            input_message_content=InputTextMessageContent("No current games")
+        )
+        )
+
+    await context.bot.answer_inline_query(update.inline_query.id, results)
 
 
 def get_current_eastern_time():
