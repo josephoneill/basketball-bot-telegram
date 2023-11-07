@@ -12,7 +12,7 @@ from pytz import timezone
 from nba_api.stats.endpoints import scoreboardv2
 from nba_api.stats.static import players
 from telegram import InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import CommandHandler
+from telegram.ext import CommandHandler, ApplicationBuilder
 from telegram.ext import InlineQueryHandler
 from telegram.ext import Updater
 from telegram.ext import CallbackQueryHandler
@@ -26,19 +26,16 @@ current_season = ""
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
-updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
-dispatcher = updater.dispatcher
 
-
-def start(update, context):
+async def start(update, context):
     # This is the unicode for a cowboy :)
-    context.bot.send_message(chat_id=update.message.chat_id, text=u'\U0001F920')
+    await context.bot.send_message(chat_id=update.message.chat_id, text=u'\U0001F920')
 
     global current_season
     current_season = get_current_season()
 
 
-def season_stats_command_handler(update, context, player_id=-1):
+async def season_stats_command_handler(update, context, player_id=-1):
     if update.message is None:
         return
 
@@ -66,7 +63,7 @@ def season_stats_command_handler(update, context, player_id=-1):
     players_found = find_players(player_name_input if player_id == -1 else player_id)
 
     if len(players_found) != 1:
-        handle_none_or_mult_players_found(players_found, update, context, 'season_stats')
+        await handle_none_or_mult_players_found(players_found, update, context, 'season_stats')
         return
 
     player = players_found[0]
@@ -79,15 +76,15 @@ def season_stats_command_handler(update, context, player_id=-1):
 
     msg = get_formatted_player_season_stats(player_season_stats, player_name)
 
-    context.bot.send_message(chat_id=update.message.chat_id, text=msg)
+    await context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
 
-def career_stats_command_handler(update, context, player_id=-1):
+async def career_stats_command_handler(update, context, player_id=-1):
     formatted_message = get_formatted_input_message(update.message.text)
     players_found = find_players(formatted_message if player_id == -1 else player_id)
 
     if len(players_found) != 1:
-        handle_none_or_mult_players_found(players_found, update, context, "career_stats")
+        await handle_none_or_mult_players_found(players_found, update, context, "career_stats")
         return
 
     player = players_found[0]
@@ -105,15 +102,15 @@ def career_stats_command_handler(update, context, player_id=-1):
     headers = get_headers(career_totals)
 
     msg = get_formatted_player_career_stats(dict(headers=headers, data=career_totals["rowSet"][0]), player_name)
-    context.bot.send_message(chat_id=update.message.chat_id, text=msg)
+    await context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
 
-def current_stats_command_handler(update, context, player_id=-1):
+async def current_stats_command_handler(update, context, player_id=-1):
     formatted_message = get_formatted_input_message(update.message.text)
     players_found = find_players(formatted_message if player_id == -1 else player_id)
 
     if len(players_found) != 1:
-        handle_none_or_mult_players_found(players_found, update, context, "current_stats")
+        await handle_none_or_mult_players_found(players_found, update, context, "current_stats")
         return
 
     player = players_found[0]
@@ -127,22 +124,22 @@ def current_stats_command_handler(update, context, player_id=-1):
     teams_data = get_current_teams_data(linescore)
     player_current_stats = get_player_current_game_stats(teams_data, player_id, team_id)
     msg = get_formatted_player_current_stats(player_current_stats, player_name)
-    context.bot.send_message(chat_id=update.message.chat_id, text=msg)
+    await context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
 
-def callback_query_keyboard_handler(update, context):
+async def callback_query_keyboard_handler(update, context):
     callback_data = [s.strip() for s in update.callback_query.data.split(',')]
     player_id = callback_data[0].split('=')[1]
     handler = callback_data[1].split('=')[1]
 
-    context.bot.editMessageReplyMarkup(chat_id=update.callback_query.message.chat.id, message_id=update.callback_query.message.message_id, reply_markup=None)
+    await context.bot.editMessageReplyMarkup(chat_id=update.callback_query.message.chat.id, message_id=update.callback_query.message.message_id, reply_markup=None)
 
     if handler == "current_stats":
-        current_stats_command_handler(update.callback_query, context, player_id)
+        await current_stats_command_handler(update.callback_query, context, player_id)
     elif handler == "career_stats":
-        career_stats_command_handler(update.callback_query, context, player_id)
+        await career_stats_command_handler(update.callback_query, context, player_id)
     elif handler == "season_stats":
-        season_stats_command_handler(update.callback_query, context, player_id)
+        await season_stats_command_handler(update.callback_query, context, player_id)
 
 
 def get_formatted_input_message(msg):
@@ -429,7 +426,7 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
     return formatted_msg
 
 
-def handle_none_or_mult_players_found(players_found, update, context, requesting_command_name):
+async def handle_none_or_mult_players_found(players_found, update, context, requesting_command_name):
     if len(players_found) == 0:
         send_player_not_found_message(update, context)
     else:
@@ -447,7 +444,8 @@ def handle_none_or_mult_players_found(players_found, update, context, requesting
             one_time_keyboard=True
         )
 
-        context.bot.send_message(chat_id=update.message.chat_id, text=msg, reply_markup=reply_markup)
+        await context.bot.send_message(chat_id=update.message.chat_id, text=msg, reply_markup=reply_markup)\
+
 
 def safe_stat_percentage(a, b):
     if b == 0: return 0
@@ -570,36 +568,39 @@ def days_between(d1, d2):
     return abs((d2 - d1).days)
 
 
-def unknown(update, context):
-    context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I didn't understand that command")
+async def unknown(update, context):
+    await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I didn't understand that command")
 
 
-def send_invalid_message(update, context):
-    context.bot.send_message(chat_id=update.message.chat_id, text="Invalid input")
+async def send_invalid_message(update, context):
+   await context.bot.send_message(chat_id=update.message.chat_id, text="Invalid input")
 
 
-def send_player_not_found_message(update, context):
-    context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
+async def send_player_not_found_message(update, context):
+    await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
 
+if __name__ == '__main__':
+    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-# create and add handlers
-start_handler = CommandHandler('start', start)
-dispatcher.add_handler(start_handler)
+    start_handler = CommandHandler('start', start)
+    application.add_handler(start_handler)
 
-season_stats_handler = CommandHandler('seasonstats', season_stats_command_handler)
-dispatcher.add_handler(season_stats_handler)
+    # create and add handlers
 
-career_stats_handler = CommandHandler('careerstats', career_stats_command_handler)
-dispatcher.add_handler(career_stats_handler)
+    season_stats_handler = CommandHandler('seasonstats', season_stats_command_handler)
+    application.add_handler(season_stats_handler)
 
-current_stats_handler = CommandHandler('currentstats', current_stats_command_handler)
-dispatcher.add_handler(current_stats_handler)
+    career_stats_handler = CommandHandler('careerstats', career_stats_command_handler)
+    application.add_handler(career_stats_handler)
 
-callback_query_handler = CallbackQueryHandler(callback_query_keyboard_handler)
-dispatcher.add_handler(callback_query_handler)
+    current_stats_handler = CommandHandler('currentstats', current_stats_command_handler)
+    application.add_handler(current_stats_handler)
 
-inline_scores_handler = InlineQueryHandler(inline_teams_scores)
-dispatcher.add_handler(inline_scores_handler)
+    callback_query_handler = CallbackQueryHandler(callback_query_keyboard_handler)
+    application.add_handler(callback_query_handler)
 
-# start the bot
-updater.start_polling()
+    inline_scores_handler = InlineQueryHandler(inline_teams_scores)
+    application.add_handler(inline_scores_handler)
+
+    #start the bot
+    application.run_polling()
