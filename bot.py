@@ -9,12 +9,10 @@ from datetime import datetime
 import telegram
 from pytz import timezone
 
-from nba_api.stats.endpoints import scoreboardv2
 from nba_api.stats.static import players
 from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import CommandHandler, ApplicationBuilder
 from telegram.ext import InlineQueryHandler
-from telegram.ext import Updater
 from telegram.ext import CallbackQueryHandler
 
 from settings import TELEGRAM_TOKEN
@@ -149,7 +147,8 @@ def get_formatted_input_message(msg):
 
 def get_scoreboard():
     curr_date = str(get_current_eastern_time()).split()[0]
-    req = create_request(f"https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate={curr_date}&LeagueID=00")
+    request_url = f"https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate={curr_date}&LeagueID=00"
+    req = create_request(request_url)
     score_board = urlopen(req).read()
     return json.loads(score_board)
 
@@ -475,7 +474,7 @@ def create_inline_query_lists(gameheader, linescore, query):
         team_a_name = team_a[linescore_headers["TEAM_NAME"]]
         team_b_name = team_b[linescore_headers["TEAM_NAME"]]
 
-        message = create_inline_request_message(start_time, team_a, team_b)
+        message = create_inline_request_message(gameheader, start_time, team_a, team_b)
 
         if query.lower() in team_a_name.lower() or query.lower() in team_b_name.lower():
             results.append(
@@ -489,7 +488,10 @@ def create_inline_query_lists(gameheader, linescore, query):
     return results
 
 
-def create_inline_request_message(start_time, team_a, team_b):
+def create_inline_request_message(gameheader, start_time, team_a, team_b):
+    gameheader_headers = get_headers(gameheader)
+    game_header_set = get_game_header_set_data(gameheader)
+
     team_a_name = team_a[linescore_headers["TEAM_NAME"]]
     team_b_name = team_b[linescore_headers["TEAM_NAME"]]
 
@@ -499,15 +501,19 @@ def create_inline_request_message(start_time, team_a, team_b):
     team_a_score = team_a[linescore_headers["PTS"]]
     team_b_score = team_b[linescore_headers["PTS"]]
 
+    gameheader_game_index = [(i, el) for i, el in enumerate(game_header_set) if el[gameheader_headers["GAME_ID"]] == team_a[linescore_headers["GAME_ID"]]][0][0]
+
+    game_status = game_header_set[gameheader_game_index][gameheader_headers["GAME_STATUS_TEXT"]]
+    game_status_text = "defeated" if  game_status == "Final" else "are currently leading"
     if team_a_score is None or team_b_score is None:
         message = f"The {team_a_name}-{team_b_name} game does not start until {start_time}"
         return message
 
     if team_a_score > team_b_score:
-        message = f"The {team_a_name} ({team_a_record}) are currently leading the {team_b_name} ({team_b_record})," \
+        message = f"The {team_a_name} ({team_a_record}) {game_status_text} the {team_b_name} ({team_b_record})," \
                   f" {team_a_score}-{team_b_score} "
     elif team_a_score < team_b_score:
-        message = f"The {team_b_name} ({team_b_record}) are currently leading the {team_a_name} ({team_a_record})," \
+        message = f"The {team_b_name} ({team_b_record}) {game_status_text} the {team_a_name} ({team_a_record})," \
                   f" {team_b_score}-{team_a_score}"
     else:
         message = f"The {team_a_name} ({team_a_record}) are currently tied with the {team_b_name} ({team_b_record})," \
@@ -557,11 +563,11 @@ async def inline_teams_scores(update, context):
     results = create_inline_query_lists(gameheader, linescore, query)
     if len(results) == 0:
         results.append(
-        InlineQueryResultArticle(
-            id=uuid.uuid4(),
-            title=f"No current games",
-            input_message_content=InputTextMessageContent("No current games")
-        )
+            InlineQueryResultArticle(
+                id=uuid.uuid4(),
+                title=f"No current games",
+                input_message_content=InputTextMessageContent("No current games")
+            )
         )
 
     await context.bot.answer_inline_query(update.inline_query.id, results)
