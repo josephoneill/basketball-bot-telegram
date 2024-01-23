@@ -18,7 +18,7 @@ from telegram.ext import CallbackQueryHandler
 from settings import TELEGRAM_TOKEN
 
 linescore_headers = {}
-current_season = ""
+current_season = "2023-24"
 
 # setup logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -158,8 +158,8 @@ def get_boxscore(game_id, game_date):
     api_formatted_date = game_date_dt_obj.strftime('%Y%m%d')
     day = datetime.strftime(game_date_dt_obj, "%Y%m%d")
     req = create_request(
-        f"https://data.nba.net/json/cms/noseason/game/{api_formatted_date}/{game_id}/boxscore.json",
-        'data.nba.net', referer='https://data.nba.net/')
+        f"https://cdn.nba.com/static/json/liveData/boxscore/boxscore_{game_id}.json",
+        'cdn.nba.com', referer='https://cdn.nba.com/')
     box_score = urlopen(req).read()
     return json.loads(box_score)
 
@@ -306,7 +306,7 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
     player_stats = {}
     common_player_info = get_player_common_info(player_id=player_id)["resultSets"][0]
     common_player_headers = get_headers(common_player_info)
-    team_nickname = common_player_info["rowSet"][0][common_player_headers["TEAM_NAME"]]
+    team_name = common_player_info["rowSet"][0][common_player_headers["TEAM_NAME"]]
     first_name = common_player_info["rowSet"][0][common_player_headers["FIRST_NAME"]]
     last_name = common_player_info["rowSet"][0][common_player_headers["LAST_NAME"]]
 
@@ -318,24 +318,23 @@ def get_player_current_game_stats(teams_data, player_id, player_team_id):
     if game_id == 0:
         return dict(headers={}, data=player_stats)
 
-    box_score = get_boxscore(game_id, game_date)["sports_content"]["game"]
+    box_score = get_boxscore(game_id, game_date)["game"]
 
-    home_player = box_score["home"]["nickname"] == team_nickname
+    home_player = box_score["homeTeam"]["teamName"] == team_name
 
     if len(box_score) == 0:
         return dict(data={}, headers={}, game_ongoing={})
 
-    # TODO: Figure out how to determine this with new boxscore endpoint
-    game_ongoing = box_score["recapAvailable"] == "0"
+    game_ongoing = box_score["gameStatusText"] != "Final"
 
-    if len(box_score["home" if home_player else "visitor"]["players"]) == 0:
+    if len(box_score["homeTeam" if home_player else "awayTeam"]["players"]) == 0:
         return dict(data={}, headers={}, game_ongoing={})
 
-    players_stats_set = box_score["home" if home_player else "visitor"]["players"]["player"]
+    players_stats_set = box_score["homeTeam" if home_player else "awayTeam"]["players"]
 
     for player_data in players_stats_set:
-        if player_data["first_name"] == f"{first_name}" and player_data["last_name"] == f"{last_name}":
-            player_stats = player_data
+        if player_data["personId"] == player_id or (player_data["firstName"] == f"{first_name}" and player_data["familyName"] == f"{last_name}"):
+            player_stats = player_data['statistics']
             break
 
     return dict(data=player_stats, game_ongoing=game_ongoing)
@@ -396,28 +395,29 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
     if points is None:
         return "Game has not started yet"
 
-    o_rebounds = safe_int(data["rebounds_offensive"])
-    d_rebounds = safe_int(data["rebounds_defensive"])
+    o_rebounds = safe_int(data["reboundsOffensive"])
+    d_rebounds = safe_int(data["reboundsDefensive"])
 
     rebounds = o_rebounds + d_rebounds
 
     assists = safe_int(data["assists"])
 
-    field_goal_a = safe_int(data["field_goals_attempted"])
-    field_goal_m = safe_int(data["field_goals_made"])
+    field_goal_a = safe_int(data["fieldGoalsAttempted"])
+    field_goal_m = safe_int(data["fieldGoalsMade"])
     field_goal_p = safe_stat_percentage(field_goal_m, field_goal_a)
 
-    three_point_a = safe_int(data["three_pointers_attempted"])
-    three_point_m = safe_int(data["three_pointers_made"])
+    three_point_a = safe_int(data["threePointersAttempted"])
+    three_point_m = safe_int(data["threePointersMade"])
     three_point_p = safe_stat_percentage(three_point_m, three_point_a)
 
-    free_throw_a = safe_int(data["free_throws_attempted"])
-    free_throw_m = safe_int(data["free_throws_made"])
+    free_throw_a = safe_int(data["freeThrowsAttempted"])
+    free_throw_m = safe_int(data["freeThrowsMade"])
     free_throw_p = safe_stat_percentage(free_throw_m, free_throw_a)
 
-    minutes_played = data["minutes"]
-    seconds_played = int(data["seconds"])
-    time_played = f"{minutes_played}:{seconds_played:02d}"
+    minutes = data["minutes"]
+    minutes_played = minutes[2:minutes.index('M')]
+    seconds_played = minutes[minutes.index('M') + 1:minutes.index('.')]
+    time_played = f"{minutes_played}:{seconds_played}"
     has_tense = "has" if game_ongoing else "had"
 
     formatted_msg = f"{player_name} {has_tense} {points}/{rebounds}/{assists} on " \
@@ -427,7 +427,7 @@ def get_formatted_player_current_stats(player_current_stats, player_name):
 
 async def handle_none_or_mult_players_found(players_found, update, context, requesting_command_name):
     if len(players_found) == 0:
-        send_player_not_found_message(update, context)
+        await send_player_not_found_message(update, context)
     else:
         msg = "Please select a player.\n"
         keyboard = []
@@ -440,7 +440,6 @@ async def handle_none_or_mult_players_found(players_found, update, context, requ
 
         reply_markup = telegram.InlineKeyboardMarkup(
             inline_keyboard=keyboard,
-            one_time_keyboard=True
         )
 
         await context.bot.send_message(chat_id=update.message.chat_id, text=msg, reply_markup=reply_markup)\
