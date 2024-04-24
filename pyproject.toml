@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "basketball-bot-telegram"
+version = "0.1.1"
+description = ""
+authors = ["Joseph O'Neill"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+python-telegram-bot = "^21.1.1"
+nba_api = "^1.4.1"
+python-dotenv = "^1.0.1"
+pytz = "^2024.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
