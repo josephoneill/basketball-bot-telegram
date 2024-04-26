@@ -11,6 +11,7 @@ python-telegram-bot = "^21.1.1"
 nba_api = "^1.4.1"
 python-dotenv = "^1.0.1"
 pytz = "^2024.1"
+pillow = "^10.3.0"
 
 
 [build-system]

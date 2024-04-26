@@ -14,8 +14,10 @@ from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram.ext import CommandHandler, ApplicationBuilder
 from telegram.ext import InlineQueryHandler
 from telegram.ext import CallbackQueryHandler
+from telegram.ext import ChosenInlineResultHandler
 
 from settings import TELEGRAM_TOKEN
+from image_generator import generate_score_img
 
 linescore_headers = {}
 current_season = "2023-24"
@@ -124,6 +126,16 @@ async def current_stats_command_handler(update, context, player_id=-1):
     msg = get_formatted_player_current_stats(player_current_stats, player_name)
     await context.bot.send_message(chat_id=update.message.chat_id, text=msg)
 
+
+async def scores_command_handler(update, context):
+    print("scores")
+    formatted_message = get_formatted_input_message(update.message.text)
+    score_board = get_scoreboard()
+    linescore = get_linescore(score_board)
+    gameheader = get_gameheader(score_board)
+    team_scores = get_team_scores(gameheader, linescore, formatted_message)[0]
+
+    await context.bot.send_photo(chat_id=update.message.chat_id, photo=generate_score_img(team_scores))
 
 async def callback_query_keyboard_handler(update, context):
     callback_data = [s.strip() for s in update.callback_query.data.split(',')]
@@ -457,11 +469,10 @@ def safe_int(a):
         return int(a)
 
 
-def create_inline_query_lists(gameheader, linescore, query):
+def get_team_scores(gameheader, linescore, query):
     gameheader_headers = get_headers(gameheader)
     teams_data = get_current_teams_data(linescore)
     game_header_set = get_game_header_set_data(gameheader)
-
     results = list()
 
     for i in range(0, int(len(teams_data) - 1), 2):
@@ -473,21 +484,33 @@ def create_inline_query_lists(gameheader, linescore, query):
         team_a_name = team_a[linescore_headers["TEAM_NAME"]]
         team_b_name = team_b[linescore_headers["TEAM_NAME"]]
 
-        message = create_inline_request_message(gameheader, start_time, team_a, team_b)
 
         if query.lower() in team_a_name.lower() or query.lower() in team_b_name.lower():
-            results.append(
-                InlineQueryResultArticle(
-                    id=uuid.uuid4(),
-                    title=f"{team_a_name} vs. {team_b_name}",
-                    input_message_content=InputTextMessageContent(message)
-                )
+            team_compare_data = get_team_compare_data(gameheader, start_time, team_a, team_b)
+            results.append(team_compare_data)
+
+    return results
+
+def create_inline_query_lists(gameheader, linescore, query):
+    results = list()
+    team_data_list = get_team_scores(gameheader, linescore, query)
+
+    for team_data in team_data_list:
+        message = create_inline_request_message(team_data)
+        team_a_name = team_data["team_a_name"]
+        team_b_name = team_data["team_b_name"]
+        results.append(
+            InlineQueryResultArticle(
+                id=uuid.uuid4(),
+                title=f"{team_a_name} vs. {team_b_name}",
+                input_message_content=InputTextMessageContent(message)
             )
+        )
 
     return results
 
 
-def create_inline_request_message(gameheader, start_time, team_a, team_b):
+def get_team_compare_data(gameheader, start_time, team_a, team_b):
     gameheader_headers = get_headers(gameheader)
     game_header_set = get_game_header_set_data(gameheader)
 
@@ -500,9 +523,33 @@ def create_inline_request_message(gameheader, start_time, team_a, team_b):
     team_a_score = team_a[linescore_headers["PTS"]]
     team_b_score = team_b[linescore_headers["PTS"]]
 
-    gameheader_game_index = [(i, el) for i, el in enumerate(game_header_set) if el[gameheader_headers["GAME_ID"]] == team_a[linescore_headers["GAME_ID"]]][0][0]
+    gameheader_game_index = [(i, el) for i, el in enumerate(game_header_set) if
+                             el[gameheader_headers["GAME_ID"]] == team_a[linescore_headers["GAME_ID"]]][0][0]
 
     game_status = game_header_set[gameheader_game_index][gameheader_headers["GAME_STATUS_TEXT"]]
+
+    team_compare_data = {}
+    team_compare_data["team_a_name"] = team_a_name
+    team_compare_data["team_b_name"] = team_b_name
+    team_compare_data["team_a_record"] = team_a_record
+    team_compare_data["team_b_record"] = team_b_record
+    team_compare_data["team_a_score"] = team_a_score
+    team_compare_data["team_b_score"] = team_b_score
+    team_compare_data["game_status"] = game_status
+    team_compare_data["start_time"] = start_time
+
+    return team_compare_data
+
+def create_inline_request_message(team_compare_data):
+    team_a_name = team_compare_data["team_a_name"]
+    team_b_name = team_compare_data["team_b_name"]
+    team_a_record = team_compare_data["team_a_record"]
+    team_b_record = team_compare_data["team_b_record"]
+    team_a_score = team_compare_data["team_a_score"]
+    team_b_score = team_compare_data["team_b_score"]
+    game_status = team_compare_data["game_status"]
+    start_time = team_compare_data["start_time"]
+
     game_status_text = "defeated" if  game_status == "Final" else "are currently leading"
     if team_a_score is None or team_b_score is None:
         message = f"The {team_a_name}-{team_b_name} game does not start until {start_time}"
@@ -609,6 +656,9 @@ if __name__ == '__main__':
 
     current_stats_handler = CommandHandler('currentstats', current_stats_command_handler)
     application.add_handler(current_stats_handler)
+
+    scores_handler = CommandHandler('scores', scores_command_handler)
+    application.add_handler(scores_handler)
 
     callback_query_handler = CallbackQueryHandler(callback_query_keyboard_handler)
     application.add_handler(callback_query_handler)
