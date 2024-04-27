@@ -1,7 +1,10 @@
+import uuid
+
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
 import io
+import os
 
 score_img_width = 1200
 score_img_height = 600
@@ -14,7 +17,7 @@ proximaNovaFont = ImageFont.truetype("assets/fonts/proximanova-regular.ttf", fon
 
 def generate_score_img(team_scores):
     print(team_scores)
-    img = Image.new(mode='RGBA', size=(score_img_width, score_img_height), color=(0, 0, 0, 0))
+    img = Image.new(mode='RGBA', size=(score_img_width, score_img_height), color=(255, 255, 255, 255))
     team_a_img = generate_team_image(img, team_scores["team_a_name"], f"({team_scores['team_a_record']})")
     team_b_img = generate_team_image(img, team_scores["team_b_name"], f"({team_scores['team_b_record']})", True)
     team_score_img = generate_team_score_img(
@@ -40,7 +43,7 @@ def generate_score_img(team_scores):
             int((score_img_height * 0.75) - (game_stats_img.size[1] / 2))
         )
     )
-    return img_to_byte_array(img)
+    return save_img_as_webp(img)
 
 
 def add_text_to_image(img, text, coord, font = proximaNovaFont):
@@ -62,9 +65,9 @@ def generate_team_image(refImg, team_name, team_record, align_text_end = False):
     team_text_width = get_text_width(refImg, team_name)
     record_text_width = get_text_width(refImg, team_record)
     img_width = int(max(team_text_width, record_text_width, team_logo.size[0])) + 32 # 32 for kernleing issue
-    img = Image.new(mode='RGBA', size=(img_width, height), color=(0, 0, 0, 0))
+    img = Image.new(mode='RGBA', size=(img_width, height), color=(255, 255, 255, 255))
     img_x = img_width - team_logo.size[0] if align_text_end else 0
-    img.paste(team_logo, box=(img_x, y))
+    img.paste(team_logo, (img_x, y), team_logo)
 
     team_text_x = img_width - team_text_width - int(text_padding / 2) if align_text_end else 0
     record_text_x = img_width - record_text_width - int(text_padding / 2) if align_text_end else 0
@@ -80,7 +83,7 @@ def generate_game_status(refImg, game_status, live_pc_time):
     game_status_width = get_text_width(refImg, game_status)
     live_pc_time_width = get_text_width(refImg, live_pc_time)
     img_width = int(max(game_status_width, live_pc_time_width))
-    img = Image.new(mode='RGBA', size=(img_width, font_size * 2), color=(0, 0, 0, 0))
+    img = Image.new(mode='RGBA', size=(img_width, font_size * 2), color=(255, 255, 255, 255))
     add_text_to_image(img, live_pc_time, (get_img_half_coord(img_width, live_pc_time_width),0))
     add_text_to_image(img, game_status, (0, font_size))
     return img
@@ -105,19 +108,28 @@ def generate_team_score_img(refImg, team_a_score, team_b_score):
 
     img_width = int(score_img_width - (horizontal_padding + logo_img_width) * 2) - score_padding
 
-    img = Image.new(mode='RGBA', size=(img_width, img_height), color=(0, 0, 0, 0))
+    img = Image.new(mode='RGBA', size=(img_width, img_height), color=(255, 255, 255, 255))
     add_text_to_image(img, str(team_a_score), (score_padding, 0), score_font)
     add_text_to_image(img, str(team_b_score), (int(img_width - team_b_score_width - score_padding), 0), score_font)
 
     return img
 
 
+def save_img_as_webp(img):
+    img_name = f"{uuid.uuid4()}.webp"
+    img.save(img_name, format='WebP')
+    return img_name
+
+
+def delete_img(img_path):
+    os.remove(img_path)
+
 def get_text_width(img, text, font=proximaNovaFont):
     draw = ImageDraw.Draw(img)
     return draw.textlength(text, font)
 
 def load_team_logo(team_name, width=200):
-    team_logo = Image.open(f'assets/img/{team_name}.png').convert('RGBA')
+    team_logo = Image.open(f'assets/img/{team_name}.png')
     team_logo = resize_width(team_logo, width)
     return team_logo
 

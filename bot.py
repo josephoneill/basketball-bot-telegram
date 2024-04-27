@@ -17,7 +17,7 @@ from telegram.ext import CallbackQueryHandler
 from telegram.ext import ChosenInlineResultHandler
 
 from settings import TELEGRAM_TOKEN
-from image_generator import generate_score_img
+from image_generator import generate_score_img, delete_img
 
 linescore_headers = {}
 current_season = "2023-24"
@@ -140,7 +140,9 @@ async def scores_command_handler(update, context):
     gameheader = get_gameheader(score_board)
     team_scores = get_team_scores(gameheader, linescore, team)[0]
 
-    await context.bot.send_photo(chat_id=update.message.chat_id, photo=generate_score_img(team_scores))
+    scores_sticker = generate_score_img(team_scores)
+    await context.bot.send_sticker(chat_id=update.message.chat_id, sticker=scores_sticker)
+    delete_img(scores_sticker)
 
 async def callback_query_keyboard_handler(update, context):
     callback_data = [s.strip() for s in update.callback_query.data.split(',')]
