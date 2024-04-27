@@ -128,7 +128,6 @@ async def current_stats_command_handler(update, context, player_id=-1):
 
 
 async def scores_command_handler(update, context):
-    print("scores")
     formatted_message = get_formatted_input_message(update.message.text)
     score_board = get_scoreboard()
     linescore = get_linescore(score_board)
@@ -527,6 +526,7 @@ def get_team_compare_data(gameheader, start_time, team_a, team_b):
                              el[gameheader_headers["GAME_ID"]] == team_a[linescore_headers["GAME_ID"]]][0][0]
 
     game_status = game_header_set[gameheader_game_index][gameheader_headers["GAME_STATUS_TEXT"]]
+    live_pc_time = game_header_set[gameheader_game_index][gameheader_headers["LIVE_PC_TIME"]]
 
     team_compare_data = {}
     team_compare_data["team_a_name"] = team_a_name
@@ -537,6 +537,7 @@ def get_team_compare_data(gameheader, start_time, team_a, team_b):
     team_compare_data["team_b_score"] = team_b_score
     team_compare_data["game_status"] = game_status
     team_compare_data["start_time"] = start_time
+    team_compare_data["live_pc_time"] = live_pc_time
 
     return team_compare_data
 
@@ -550,7 +551,7 @@ def create_inline_request_message(team_compare_data):
     game_status = team_compare_data["game_status"]
     start_time = team_compare_data["start_time"]
 
-    game_status_text = "defeated" if  game_status == "Final" else "are currently leading"
+    game_status_text = "defeated" if game_status == "Final" else "are currently leading"
     if team_a_score is None or team_b_score is None:
         message = f"The {team_a_name}-{team_b_name} game does not start until {start_time}"
         return message
