@@ -158,7 +158,7 @@ def get_formatted_input_message(msg):
 
 def get_scoreboard():
     curr_date = str(get_current_eastern_time()).split()[0]
-    request_url = f"https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate={curr_date}&LeagueID=00"
+    request_url = f"https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate={curr_date}&LeagueID=00&refresh={uuid.uuid4()}"
     req = create_request(request_url)
     score_board = urlopen(req).read()
     return json.loads(score_board)
