@@ -128,11 +128,17 @@ async def current_stats_command_handler(update, context, player_id=-1):
 
 
 async def scores_command_handler(update, context):
-    formatted_message = get_formatted_input_message(update.message.text)
-    score_board = get_scoreboard()
+    formatted_message = get_formatted_input_message(update.message.text).split()
+    team = formatted_message[0]
+    date = None
+    if len(formatted_message) > 1:
+        # TODO: Validate date input
+        date = formatted_message[1]
+
+    score_board = get_scoreboard(date)
     linescore = get_linescore(score_board)
     gameheader = get_gameheader(score_board)
-    team_scores = get_team_scores(gameheader, linescore, formatted_message)[0]
+    team_scores = get_team_scores(gameheader, linescore, team)[0]
 
     await context.bot.send_photo(chat_id=update.message.chat_id, photo=generate_score_img(team_scores))
 
@@ -156,8 +162,8 @@ def get_formatted_input_message(msg):
     return input_msg.replace(input_msg[0:input_msg.find(' ') + 1], '')
 
 
-def get_scoreboard():
-    curr_date = str(get_current_eastern_time()).split()[0]
+def get_scoreboard(date=None):
+    curr_date = date if date is not None else str(get_current_eastern_time()).split()[0]
     request_url = f"https://stats.nba.com/stats/scoreboardv2?DayOffset=0&GameDate={curr_date}&LeagueID=00&refresh={uuid.uuid4()}"
     req = create_request(request_url)
     score_board = urlopen(req).read()
