@@ -18,8 +18,8 @@ proximaNovaFont = ImageFont.truetype("assets/fonts/proximanova-regular.ttf", fon
 def generate_score_img(team_scores):
     print(team_scores)
     img = Image.new(mode='RGBA', size=(score_img_width, score_img_height), color=(255, 255, 255, 255))
-    team_a_img = generate_team_image(img, team_scores["team_a_name"], f"({team_scores['team_a_record']})")
-    team_b_img = generate_team_image(img, team_scores["team_b_name"], f"({team_scores['team_b_record']})", True)
+    team_a_img = generate_team_image(img, team_scores["team_a_name"].lower(), f"({team_scores['team_a_record']})")
+    team_b_img = generate_team_image(img, team_scores["team_b_name"].lower(), f"({team_scores['team_b_record']})", True)
     team_score_img = generate_team_score_img(
         img,
         team_scores["team_a_score"],
