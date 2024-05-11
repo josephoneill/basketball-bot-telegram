@@ -26,6 +26,7 @@ def generate_score_img(team_scores):
         team_scores["team_b_score"],
     )
     img.paste(team_a_img, box=(horizontal_padding, get_img_half_coord(score_img_height, team_a_img.size[1])))
+    img.paste(team_b_img, box=(img.size[0] - team_b_img.size[0] - horizontal_padding, get_img_half_coord(score_img_height, team_b_img.size[1])))
     img.paste(
         team_score_img,
         box=(
@@ -33,7 +34,6 @@ def generate_score_img(team_scores):
             get_img_half_coord(score_img_height, int(team_score_img.size[1])) - font_size + int(text_padding / 2)
         )
     )
-    img.paste(team_b_img, box=(img.size[0] - team_b_img.size[0] - horizontal_padding, get_img_half_coord(score_img_height, team_b_img.size[1])))
 
     game_stats_img = generate_game_status(img, team_scores["game_status"].strip(), team_scores["live_pc_time"].strip())
     img.paste(
