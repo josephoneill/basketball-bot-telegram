@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "nba-plugin"
+version = "0.1.0"
+description = "NBA plugin for sports-bot-telegram"
+authors = ["josephoneill <devjoseph97@gmail.com>"]
+readme = "README.md"
+packages = [{include = "nba_plugin", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+sports-bot-telegram-plugin = {path = "../../sports-bot-telegram-plugin", develop = true}
+python-telegram-bot = "^21.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.plugins."sports_bot_telegram_plugins"]
+nba = "nba_plugin.plugin:register_plugin" 

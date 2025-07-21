@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "sports-bot-telegram"
+version = "0.1.0"
+description = "Telegram bot for sports information"
+authors = ["josephoneill <devjoseph97@gmail.com>"]
+packages = [
+    { include = "bot", from = "src" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+python-telegram-bot = "^21.0.0"
+sports-bot-telegram-plugin = {path = "../sports-bot-telegram-plugin", develop = true}
+pytz = "^2024.1"
+python-dotenv = "^1.0.0"
+Pillow = "^10.0.0"
+nba-plugin = {path = "../sports-bot-plugins/nba-plugin/dist/nba_plugin-0.1.0-py3-none-any.whl"}
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.plugins."sports_bot_telegram_plugins"]
+# This section will be used by plugins to register themselves
