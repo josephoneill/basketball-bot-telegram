@@ -45,7 +45,8 @@ class NBAPlugin(SportsBotPlugin):
         """
         return self.player_service.get_player_career_stats(player_name)
 
-    def get_player_live_stats(self, player_name: str) -> Dict:
+    def get_player_live_stats(self, player_name: str, update, context) -> Dict:
+        print("Searching for live stats")
         """
         Get current/live stats for a specific NBA player.
         
@@ -55,7 +56,7 @@ class NBAPlugin(SportsBotPlugin):
         Returns:
             Dictionary containing player's current statistics
         """
-        return self.player_service.get_player_live_stats(player_name)
+        return self.player_service.get_player_live_stats(player_name, update, context)
 
     def get_player_season_stats(self, player_name: str, start_year: Optional[str] = None, end_year: Optional[str] = None) -> str:
         """
@@ -106,7 +107,7 @@ class NBAPlugin(SportsBotPlugin):
         ]
 
     async def send_player_not_found_message(self, update, context):
-        await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
+        await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find an NBA player with that name")
 
 def register_plugin() -> Type[SportsBotPlugin]:
     """Register the NBA plugin."""

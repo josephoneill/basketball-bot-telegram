@@ -7,15 +7,28 @@ class PlayerService:
     def __init__(self, handle_multiple_players: Callable):
         self.handle_multiple_players = handle_multiple_players
 
-    def find_players(self, player_name: str) -> List[Dict]:
-        """Find players by name or ID."""
-        if player_name.isdigit():
-            return [players.find_player_by_id(player_name)]
-        return players.find_players_by_full_name(player_name)
+    def find_players(self, player_query: str):
+        """Find players using fuzzy partial match."""
+        if player_query.isdigit():
+            player = players.find_player_by_id(player_query)
+            return [player] if player else []
+
+        all_players = players.get_players()
+        query_lower = player_query.lower()
+
+        # Simple partial match
+        matched_players = [
+            p for p in all_players
+            if query_lower in p["full_name"].lower()
+        ]
+
+        return matched_players
+
     
     def is_player_supported(self, player_name: str) -> bool:
-        """Check if a player is supported by this plugin."""
-        return any(player["full_name"] == player_name for player in self.find_players(player_name))
+        """Check if a player is supported by this plugin using partial match."""
+        players = find_players(player_name)
+        return len(players) > 0
 
     async def get_player_career_stats(self, player_name: str, update, context) -> str:
         players_found = find_players(player_name)
@@ -51,7 +64,15 @@ class PlayerService:
         # TODO: Implement formatting logic
         return f"Stats for {player_name}"
 
-    def get_player_live_stats(self, player_name: str) -> Dict:
+    async def get_player_live_stats(self, player_name: str, update, context) -> Dict:
         """Get current/live stats for a specific NBA player."""
-        # TODO: Implement live stats retrieval
+        # First, find the correct player
+        print('searching')
+        players_found = find_players(player_name)
+
+        print(players_found)
+
+        if len(players_found) != 1:
+            await self.handle_multiple_players(players_found, update, context, "career_stats")
+            return None
         return {} 
