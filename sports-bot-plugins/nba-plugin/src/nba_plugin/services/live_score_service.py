@@ -1,8 +1,8 @@
 from typing import Dict, Optional, List
 from datetime import datetime
 from sports_bot_telegram_plugin.types.MatchScores import MatchScores
-from nba_plugin.api.nba import get_scoreboard, get_boxscore, get_team_record
-from nba_plugin.util.nba_utils import get_linescore, get_gameheader, game_et_to_hh_mm, game_clock_to_mm_ss, get_headers, get_current_teams_data, get_game_header_set_data, find_team_id, get_team_by_id
+from nba_plugin.api.nba import get_scoreboard, get_boxscore, get_team_record, get_most_recent_game
+from nba_plugin.util.nba_utils import game_et_to_hh_mm, game_clock_to_mm_ss, get_headers, get_current_teams_data, get_game_header_set_data, find_team_id, get_team_by_id
 
 
 class LiveScoreService:
@@ -46,6 +46,12 @@ class LiveScoreService:
       if home_team_id == team_id or away_team_id == team_id:
          # Return the game dataset and the game id
          return game, game[gameheader_headers["GAME_ID"]]
+      
+    # Couldn't find a game today for matched team, try to find most recent game
+    last_game_id = get_most_recent_game(team_id) 
+
+    if last_game_id:
+       return None, last_game_id
       
     return None
   

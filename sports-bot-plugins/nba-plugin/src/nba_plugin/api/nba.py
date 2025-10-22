@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime
 from nba_plugin.util.utils import get_current_eastern_time
 from nba_api.live.nba.endpoints import ScoreBoard, BoxScore
-from nba_api.stats.endpoints import ScoreboardV2, LeagueStandingsV3
+from nba_api.stats.endpoints import ScoreboardV2, LeagueStandingsV3, TeamGameLog
+from ..util.nba_utils import get_headers
 import socket
 
 def create_request(url, host='stats.nba.com', referer='https://stats.nba.com/'):
@@ -71,6 +72,30 @@ def get_team_record(team_id):
     except Exception as e:
         print(f"Error fetching league standings: {e}")
         return None
+    
+
+def get_most_recent_game(team_id):
+    gamelog = TeamGameLog(team_id=team_id, league_id_nullable="00").get_dict()
+    print(gamelog)
+
+    resultSet = gamelog["resultSets"][0]
+
+    if not resultSet:
+        return
+
+    header = get_headers(resultSet)
+    rowset = resultSet["rowSet"]
+
+    if not rowset:
+        return
+
+    # Get most recent game
+    last_row = rowset[-1]
+
+    game_id = last_row[header["Game_ID"]]
+
+    print(game_id)
+    return game_id
 
 
 # def get_boxscore(game_id, game_date):
