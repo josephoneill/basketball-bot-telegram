@@ -76,7 +76,6 @@ def get_team_record(team_id):
 
 def get_most_recent_game(team_id):
     gamelog = TeamGameLog(team_id=team_id, league_id_nullable="00").get_dict()
-    print(gamelog)
 
     resultSet = gamelog["resultSets"][0]
 
@@ -94,7 +93,6 @@ def get_most_recent_game(team_id):
 
     game_id = last_row[header["Game_ID"]]
 
-    print(game_id)
     return game_id
 
 
