@@ -1,5 +1,7 @@
 from datetime import datetime, date
-from nba_api.stats.static import players
+from nba_api.stats.static import players, teams
+from functools import lru_cache
+from rapidfuzz import process
 
 def get_headers(result_set):
     headers = {}
@@ -103,3 +105,55 @@ def find_players(player_name):
         found_players = players.find_players_by_full_name(player_name)
 
     return found_players
+
+@lru_cache(maxsize=1)
+def get_team_name_map():
+    """Build and cache a lookup map of all possible team name variations"""
+    nba_teams = teams.get_teams()
+    team_name_map = {}
+
+    for team in nba_teams:
+        variations = {
+            team["full_name"],
+            team["nickname"],
+            team["abbreviation"],
+            team["city"],
+            f"{team['city']} {team['nickname']}",
+        }
+        for name in variations:
+            team_name_map[name.lower()] = team
+
+    return team_name_map
+
+def find_team_id(user_query):
+    team_name_map = get_team_name_map()
+    choices = list(team_name_map.keys())
+
+    match, score, _ = process.extractOne(user_query.lower(), choices)
+    matched_team = team_name_map[match]
+
+    return matched_team["id"]
+
+def get_team_by_id(team_id):
+    team_name = ""
+    try:
+        team_data = teams.find_team_name_by_id(team_id=team_id)
+        team_name = team_data["nickname"]
+    except:
+        return ""
+
+    return team_name
+
+def game_clock_to_mm_ss(gameclock):
+    clock = gameclock.replace("PT", "").replace("M", ":")[:5]
+    # Return empty string if game is over
+    if clock == "00:00":
+        return ""
+
+    return clock
+
+def game_et_to_hh_mm(gameEt):
+    dt = datetime.fromisoformat(gameEt)
+    time = dt.strftime('%H:%M')
+
+    return f"{time} ET"

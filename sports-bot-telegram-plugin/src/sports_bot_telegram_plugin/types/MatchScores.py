@@ -1,12 +1,13 @@
 from dataclasses import dataclass
+from typing import Optional
 
 @dataclass
 class MatchScores:
     home_team: str
-    home_score: int
+    home_score: Optional[int]
     home_team_record: str
     away_team: str
-    away_score: int
+    away_score: Optional[int]
     away_team_record: str
 
     game_status: str

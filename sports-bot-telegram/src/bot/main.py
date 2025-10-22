@@ -5,7 +5,7 @@ from typing import List, Dict
 import telegram
 from pytz import timezone
 from telegram import InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import CommandHandler, ApplicationBuilder
+from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler
 from telegram.ext import InlineQueryHandler
 from telegram.ext import CallbackQueryHandler
 
@@ -174,6 +174,9 @@ if __name__ == '__main__':
 
     career_stats_handler = CommandHandler('careerstats', career_stats_command_handler)
     application.add_handler(career_stats_handler)
+
+    unknown_handler = MessageHandler(telegram.ext.filters.COMMAND, unknown)
+    application.add_handler(unknown_handler)
 
     # Register all plugin handlers
     PluginManager.setup_plugin_handlers(application)

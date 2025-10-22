@@ -31,7 +31,7 @@ class NBAPlugin(SportsBotPlugin):
         Returns:
             MatchScores object containing game scores and details
         """
-        return self.live_score_service.get_live_scores(team, game_date)
+        return self.live_score_service.get_scores(team, game_date)
 
     def get_player_career_stats(self, player_name: str) -> str:
         """

@@ -1,45 +1,150 @@
 from typing import Dict, Optional, List
 from datetime import datetime
 from sports_bot_telegram_plugin.types.MatchScores import MatchScores
-from nba_plugin.api.nba import get_scoreboard
-from nba_plugin.util.nba_utils import get_linescore, get_gameheader, get_headers, get_current_teams_data, get_game_header_set_data
+from nba_plugin.api.nba import get_scoreboard, get_boxscore, get_team_record
+from nba_plugin.util.nba_utils import get_linescore, get_gameheader, game_et_to_hh_mm, game_clock_to_mm_ss, get_headers, get_current_teams_data, get_game_header_set_data, find_team_id, get_team_by_id
 
 
 class LiveScoreService:
-  def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
-    try:
-      score_board = get_scoreboard(game_date)
-    except Exception as e:
-      print(f"Error in get_scoreboard: {e}")
-      return None
-    try:
-      linescore = get_linescore(score_board)
-    except Exception as e:
-      print(f"Error in get_linescore: {e}")
-      return None
-    try:
-      gameheader = get_gameheader(score_board)
-    except Exception as e:
-      print(f"Error in get_gameheader: {e}")
-      return None
+  def get_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
+    score_board = get_scoreboard(date=game_date)
+    resultSets = score_board["resultSets"]
 
-    if linescore.get("empty") or gameheader.get("empty"):
-      return None
+    if not resultSets or len(resultSets) == 0:
+       return None
     
-    try:
-      linescore_data = linescore["linescore"]
-      linescore_headers = linescore["linescore_headers"]
-      match_scores = self._get_live_team_scores(gameheader, linescore_data, linescore_headers, team)
-      if not match_scores:
-          return None
-      match_scores = match_scores[0]
-      return match_scores
-    except Exception as e:
-      print(f"Error processing scores: {e}")
-      return None
+    gameheader = resultSets[0]
+    boxscore_id_result = LiveScoreService._get_boxscore_id(team, gameheader)
+
+    if not boxscore_id_result:
+       return None
+    
+    game, boxscore_id = boxscore_id_result
+
+    box_score = get_boxscore(boxscore_id)
+
+    # There's a chance the box score for today's game isn't live yet
+    # In this case, just generate a dummy score
+    if not box_score:
+       return LiveScoreService._get_not_started_team_scores(game, gameheader)
+    
+    match_score = LiveScoreService._get_team_scores_from_boxscore(boxscore=box_score)
+    return match_score
 
   @staticmethod
-  def _get_live_team_scores(gameheader, linescore, linescore_headers, query) -> List[MatchScores]:
+  def _get_boxscore_id(team, gameheader):
+     # Get the id of the team query
+    team_id = find_team_id(team)
+
+    gameheader_headers = get_headers(gameheader)
+    game_header_set = get_game_header_set_data(gameheader)
+
+    for game in game_header_set:
+      home_team_id = game[gameheader_headers["HOME_TEAM_ID"]]
+      away_team_id = game[gameheader_headers["VISITOR_TEAM_ID"]]
+
+      if home_team_id == team_id or away_team_id == team_id:
+         # Return the game dataset and the game id
+         return game, game[gameheader_headers["GAME_ID"]]
+      
+    return None
+  
+  @staticmethod
+  def _get_not_started_team_scores(game, gameheader) -> List[MatchScores]:
+    gameheader_headers = get_headers(gameheader)
+
+    home_team_id = game[gameheader_headers["HOME_TEAM_ID"]]
+    away_team_id = game[gameheader_headers["VISITOR_TEAM_ID"]]
+
+    home_team = get_team_by_id(home_team_id)
+    away_team = get_team_by_id(away_team_id)
+
+    home_team_record = get_team_record(home_team_id)
+    away_team_record = get_team_record(away_team_id)
+
+    game_start_time = game[gameheader_headers["GAME_STATUS_TEXT"]]
+    game_curr_time = game[gameheader_headers["LIVE_PC_TIME"]]
+  
+    return MatchScores(
+          home_team=home_team,
+          home_score=None,
+          home_team_record=home_team_record,
+          away_team=away_team,
+          away_score=None,
+          away_team_record=away_team_record,
+          game_status=game_start_time,
+          game_start_time=game_start_time,
+          game_curr_time=game_curr_time
+       )
+  
+  @staticmethod
+  def _get_team_scores_from_boxscore(boxscore) -> MatchScores:
+    game = boxscore["game"]
+    home_team = game["homeTeam"]
+    away_team = game["awayTeam"]
+
+    home_team_id = home_team["teamId"]
+    away_team_id = away_team["teamId"]
+
+    home_team_name = home_team["teamName"]
+    home_team_score = home_team["score"]
+    home_team_record = get_team_record(home_team_id)
+
+
+    away_team_name = away_team["teamName"]
+    away_team_score = away_team["score"]
+    away_team_record = get_team_record(away_team_id)
+
+    game_status = game["gameStatusText"]
+    game_start_time = game_et_to_hh_mm(game["gameEt"])
+    game_curr_time = game_clock_to_mm_ss(game["gameClock"])
+
+    return MatchScores(
+       home_team=home_team_name,
+       home_score=home_team_score,
+       home_team_record=home_team_record,
+       away_team=away_team_name,
+       away_score=away_team_score,
+       away_team_record=away_team_record,
+       game_status=game_status,
+       game_start_time=game_start_time,
+       game_curr_time=game_curr_time
+    )
+  
+  @staticmethod
+  def _get_live_team_scores_from_scoreboard(games, query) -> List[MatchScores]:
+      results = list()
+
+      for game in games:
+          home_team = game["homeTeam"]
+          away_team = game["awayTeam"]
+
+          home_team_name = home_team["teamName"]
+          away_team_name = away_team["teamName"]
+
+          if query.lower() in home_team_name.lower() or query.lower() in away_team_name.lower():
+              # Time format is like "PT10M11.00S"
+              current_game_time = game["gameClock"]
+              # Extract to MM:SS, two numbers after PT and 2 numbers after M
+              current_game_time = current_game_time.replace("PT", "").replace("M", ":")[:5]
+
+              team_compare_data = MatchScores(
+                home_team=home_team_name,
+                home_score=home_team["score"],
+                home_team_record=f"{home_team['wins']}-{home_team['losses']}",
+                away_team=away_team_name,
+                away_score=away_team["score"],
+                away_team_record=f"{away_team['wins']}-{away_team['losses']}",
+                game_status=game["gameStatusText"].strip(),
+                game_start_time=game["gameEt"],
+                game_curr_time=current_game_time
+              )
+              results.append(team_compare_data)
+
+      return results
+
+  @staticmethod
+  def _get_past_team_scores(gameheader, linescore, linescore_headers, query) -> List[MatchScores]:
       gameheader_headers = get_headers(gameheader)
       teams_data = get_current_teams_data(linescore)
       game_header_set = get_game_header_set_data(gameheader)
@@ -53,7 +158,6 @@ class LiveScoreService:
 
           home_team_name = home_team[linescore_headers["TEAM_NAME"]]
           away_team_name = away_team[linescore_headers["TEAM_NAME"]]
-
 
           if query.lower() in home_team_name.lower() or query.lower() in away_team_name.lower():
               team_compare_data = LiveScoreService._get_match_score_data(gameheader, linescore_headers, start_time, home_team, away_team)

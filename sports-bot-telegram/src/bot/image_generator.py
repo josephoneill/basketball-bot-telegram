@@ -6,6 +6,7 @@ from PIL import ImageDraw
 import io
 import os
 from sports_bot_telegram_plugin.types.MatchScores import MatchScores
+from rapidfuzz import process
 
 score_img_width = 1200
 score_img_height = 600
@@ -95,7 +96,7 @@ def generate_team_score_img(refImg, home_score, away_score):
     img_height = font_size
     home_score_width = 0
     away_score_width = 0
-    game_has_started = home_score is not None and away_score is not None
+    game_has_started = home_score is not None and away_score is not None or home_score == -1 or away_score == -1
 
     if not game_has_started:
         return Image.new(mode='RGBA', size=(0,0), color=(0,0,0,0))
@@ -126,8 +127,30 @@ def get_text_width(img, text, font=proximaNovaFont):
     draw = ImageDraw.Draw(img)
     return draw.textlength(text, font)
 
+def find_team_image(team_name):
+    folder = "assets/img"
+    min_confidence = 0.25
+
+    image_files = [f for f in os.listdir(folder) if f.lower().endswith(".png")]
+    if not image_files:
+        raise FileNotFoundError(f"No PNG images found in {folder}")
+
+    # Create a list of candidate names (without extension)
+    candidates = [os.path.splitext(f)[0] for f in image_files]
+
+    # Fuzzy match team_name to available image names
+    match, score, _ = process.extractOne(team_name, candidates)
+
+    if score < min_confidence:
+        raise ValueError(f"No close match found for '{team_name}' (best match: '{match}', score: {score})")
+
+    # Load the matched logo
+    logo_path = os.path.join(folder, f"{match}.png")
+    team_logo = Image.open(logo_path)
+    return team_logo
+
 def load_team_logo(team_name, width=200):
-    team_logo = Image.open(f'assets/img/{team_name.lower()}.png')
+    team_logo = find_team_image(team_name.lower().replace(" ", "_"))
     team_logo = resize_width(team_logo, width)
     return team_logo
 
