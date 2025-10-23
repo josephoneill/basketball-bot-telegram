@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM python:3.9.17-slim as python-base
+
+FROM python:3.10.13-slim AS python-base
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
@@ -15,27 +16,25 @@ ENV PATH="$POETRY_HOME/bin:$VIRTUAL_ENV/bin:$PATH"
 RUN python -m venv $VIRTUAL_ENV
 
 WORKDIR /app
-ENV PYTHONPATH="/app:$PYTHONPATH"
+ENV PYTHONPATH="/app:${PYTHONPATH:-}"
 
-FROM python-base as builder-base
-RUN apt-get update && \
-    apt-get install -y \
-    build-essential \
-    curl
+FROM python-base AS builder
 
+RUN apt-get update && apt-get install -y build-essential curl
 
 RUN curl -sSL https://install.python-poetry.org | python -
 
-WORKDIR /app
-COPY poetry.lock pyproject.toml ./
+WORKDIR /app/sports-bot-telegram
+COPY . /app/
+
 RUN poetry install --no-root --only main
 
+FROM python-base AS production
 
-FROM python-base as production
-COPY --from=builder-base $POETRY_HOME $POETRY_HOME
-COPY --from=builder-base $VIRTUAL_ENV $VIRTUAL_ENV
+COPY --from=builder $POETRY_HOME $POETRY_HOME
+COPY --from=builder $VIRTUAL_ENV $VIRTUAL_ENV
 
 COPY . /app/
-WORKDIR /app
+WORKDIR /app/sports-bot-telegram
 
-CMD ["poetry", "run", "python", "bot/main.py"]
+CMD ["poetry", "run", "python", "-m", "src.bot.main"]

@@ -22,11 +22,11 @@ Examples of valid syntax
 Examples of valid syntax
 + `/careerstats LeBron James`
 
-### `/currentstats {Player Name}`  
+### `/stats {Player Name}`  
 + Returns the current stats of a plyaer if they are currently playing; otherwise, returns the stats of the player's most recent game  
 
 Examples of valid syntax
-+ `/currentstats LeBron James`
++ `/stats LeBron James`
 
 ## Plugin Development
 

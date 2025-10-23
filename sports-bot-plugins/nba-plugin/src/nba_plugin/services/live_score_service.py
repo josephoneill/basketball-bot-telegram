@@ -14,7 +14,7 @@ class LiveScoreService:
        return None
     
     gameheader = resultSets[0]
-    boxscore_id_result = LiveScoreService._get_boxscore_id(team, gameheader)
+    boxscore_id_result = LiveScoreService._get_game_id(team, gameheader)
 
     if not boxscore_id_result:
        return None
@@ -22,6 +22,9 @@ class LiveScoreService:
     game, boxscore_id = boxscore_id_result
 
     box_score = get_boxscore(boxscore_id)
+    import json
+    with open('box_score.json', 'w') as f:
+      json.dump(box_score, f, indent=2)
 
     # There's a chance the box score for today's game isn't live yet
     # In this case, just generate a dummy score
@@ -32,7 +35,7 @@ class LiveScoreService:
     return match_score
 
   @staticmethod
-  def _get_boxscore_id(team, gameheader):
+  def _get_game_id(team, gameheader):
      # Get the id of the team query
     team_id = find_team_id(team)
 

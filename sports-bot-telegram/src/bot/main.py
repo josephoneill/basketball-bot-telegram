@@ -28,7 +28,10 @@ def get_formatted_input_message(msg):
     input_msg = msg.lower()
     return input_msg.replace(input_msg[0:input_msg.find(' ') + 1], '')
 
-def get_player_name_and_years(msg):
+def get_player_name_and_years(msg, id=-1, start_year=-1, end_year=-1):
+    if id != -1:
+        return id, start_year, end_year
+
     if msg is None:
         return
 
@@ -116,22 +119,29 @@ async def scores_command_handler(update, context):
         )
 
 async def current_stats_command_handler(update, context, player_id=-1):
-    formatted_message = get_formatted_input_message(update.message.text)
+    formatted_message = get_formatted_input_message(update.message.text) if player_id == -1 else player_id
     
     # Try each registered plugin until we find player stats
     plugin = PluginManager.find_plugin_for_player(formatted_message)
+
+    if not plugin:
+        return
+
     try:
-        player_stats_msg = plugin.get_player_live_stats(formatted_message)
+        player_stats_msg = await plugin.get_player_live_stats(formatted_message, update, context)
         if player_stats_msg:
             await context.bot.send_message(chat_id=update.message.chat_id, text=player_stats_msg)
+            return
+        # Multiple players, don't send player not found message
+        if player_stats_msg == "":
             return
     except Exception as e:
         logger.debug(f"Plugin failed to get player stats: {str(e)}")
     
     await send_player_not_found_message(update, context)
 
-async def season_stats_command_handler(update, context):
-    player_name, start_year, end_year = get_player_name_and_years(update.message)
+async def season_stats_command_handler(update, context, player_id = -1, start_year=-1, end_year=-1):
+    player_name, start_year, end_year = get_player_name_and_years(update.message, player_id, start_year, end_year)
     # Try each registered plugin until we find player stats
     plugin = PluginManager.find_plugin_for_player(player_name)
     try:
@@ -143,11 +153,85 @@ async def season_stats_command_handler(update, context):
         logger.debug(f"Plugin failed to get player season stats: {str(e)}")
         await send_player_not_found_message(update, context)
 
-async def career_stats_command_handler(update, context):
-    player_name, _, _ = get_player_name_and_years(update.message)
+async def callback_query_handler(update, context):
+    """
+    Generic callback query handler that routes to the appropriate plugin.
+    Expects callback_data in format: "id=<value>, handler=<handler_name>, plugin=<plugin_name>, year=<year>"
+    """
+    try:
+        callback_data = [s.strip() for s in update.callback_query.data.split(',')]
+        
+        # Parse callback data
+        data_dict = {}
+        for item in callback_data:
+            if '=' in item:
+                key, value = item.split('=', 1)
+                data_dict[key.strip()] = value.strip()
+        
+        # Delete previous followup message
+        await context.bot.editMessageReplyMarkup(
+            chat_id=update.callback_query.message.chat.id, 
+            message_id=update.callback_query.message.message_id, 
+            reply_markup=None
+        )
+        
+        # Get required data
+        player_id = data_dict.get('id')
+        handler = data_dict.get('handler')
+        plugin_name = data_dict.get('plugin')
+        year = data_dict.get('year')  # Optional for season stats
+        
+        if not player_id or not handler:
+            await context.bot.send_message(
+                chat_id=update.callback_query.message.chat.id,
+                text="Error: Missing required callback data"
+            )
+            return
+        
+        # Handle predefined functions automatically
+        if handler in ["current_stats", "career_stats", "season_stats"]:
+            await _handle_predefined_callback(update, context, player_id, handler, year)
+            return
+        
+        # For custom handlers, route to plugin
+        if plugin_name:
+            plugin = PluginManager.find_plugin_by_name(plugin_name)
+            if not plugin:
+                await context.bot.send_message(
+                    chat_id=update.callback_query.message.chat.id,
+                    text=f"Error: Plugin '{plugin_name}' not found"
+                )
+                return
+            
+            # Call the plugin's custom callback handler
+            await plugin.handle_callback_query(update, context, data_dict)
+        else:
+            await context.bot.send_message(
+                chat_id=update.callback_query.message.chat.id,
+                text="Error: No plugin specified for custom handler"
+            )
+        
+    except Exception as e:
+        logger.error(f"Error handling callback query: {str(e)}")
+        await context.bot.send_message(
+            chat_id=update.callback_query.message.chat.id,
+            text="Sorry, there was an error processing your request"
+        )
+
+async def _handle_predefined_callback(update, context, player_id, handler, year):
+    if handler == "current_stats":
+        await current_stats_command_handler(update.callback_query, context, player_id)
+    elif handler == "career_stats":
+        await career_stats_command_handler(update.callback_query, context, player_id)
+    elif handler == "season_stats":
+        await season_stats_command_handler(update.callback_query, context, player_id)
+
+
+async def career_stats_command_handler(update, context, player_id=-1):
+    player_name, _, _ = get_player_name_and_years(update.message, player_id)
     plugin = PluginManager.find_plugin_for_player(player_name)
     try:
-        player_stats_msg = plugin.get_player_career_stats(player_name)
+        player_stats_msg = await plugin.get_player_career_stats(player_name, update, context)
         if player_stats_msg:
             await context.bot.send_message(chat_id=update.message.chat_id, text=player_stats_msg)
             return
@@ -166,7 +250,7 @@ if __name__ == '__main__':
     scores_handler = CommandHandler('scores', scores_command_handler)
     application.add_handler(scores_handler)
 
-    current_stats_handler = CommandHandler('currentstats', current_stats_command_handler)
+    current_stats_handler = CommandHandler('stats', current_stats_command_handler)
     application.add_handler(current_stats_handler)
 
     season_stats_handler = CommandHandler('seasonstats', season_stats_command_handler)
@@ -174,6 +258,10 @@ if __name__ == '__main__':
 
     career_stats_handler = CommandHandler('careerstats', career_stats_command_handler)
     application.add_handler(career_stats_handler)
+
+    # Add callback query handler
+    callback_query_handler_instance = CallbackQueryHandler(callback_query_handler)
+    application.add_handler(callback_query_handler_instance)
 
     unknown_handler = MessageHandler(telegram.ext.filters.COMMAND, unknown)
     application.add_handler(unknown_handler)

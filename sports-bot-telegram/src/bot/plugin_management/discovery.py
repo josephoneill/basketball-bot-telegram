@@ -76,6 +76,20 @@ class PluginManager:
         return None
 
     @classmethod
+    def find_plugin_by_name(cls, plugin_name: str) -> Optional[SportsBotPlugin]:
+        """
+        Find a plugin by its name.
+        
+        Args:
+            plugin_name: Name of the plugin to find
+            
+        Returns:
+            Plugin instance with the given name, or None if not found
+        """
+        cls._initialize()
+        return cls._plugin_instances.get(plugin_name)
+
+    @classmethod
     def get_all_plugins(cls) -> List[SportsBotPlugin]:
         """Get all available plugin instances"""
         cls._initialize()

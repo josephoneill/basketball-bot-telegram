@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Sequence
 from datetime import datetime
 import telegram
-from telegram.ext import BaseHandler
+from telegram.ext import BaseHandler, CallbackContext
+from telegram import Update
 from .types.MatchScores import MatchScores
 
 class SportsBotPlugin(ABC):
@@ -39,7 +40,7 @@ class SportsBotPlugin(ABC):
         self.description = ''
         self.version = ''
 
-    async def handle_none_or_mult_players_found(self, players_found, update, context, requesting_command_name):
+    async def handle_none_or_mult_players_found(self, players_found, update, context, requesting_command_name, year=None):
         """Handle cases where no players or multiple players are found."""
         if len(players_found) == 0:
             await self.send_player_not_found_message(update, context)
@@ -48,9 +49,14 @@ class SportsBotPlugin(ABC):
             keyboard = []
 
             for player_found in players_found:
+                # Build callback data with optional year parameter
+                callback_data = f"id={player_found['id']}, handler={requesting_command_name}"
+                if year:
+                    callback_data += f", year={year}"
+                
                 keyboard.append([telegram.InlineKeyboardButton(
                     text=player_found['full_name'],
-                    callback_data=f"id={player_found['id']}, code={requesting_command_name}")]
+                    callback_data=callback_data)]
                 )
 
             reply_markup = telegram.InlineKeyboardMarkup(
@@ -78,7 +84,7 @@ class SportsBotPlugin(ABC):
         pass
         
     @abstractmethod
-    def get_player_career_stats(self, player_name: str) -> str:
+    def get_player_career_stats(self, player_name: str, update=None, context=None) -> str:
         """
         Get career stats for a specific player.
         """
@@ -92,7 +98,7 @@ class SportsBotPlugin(ABC):
         pass
 
     @abstractmethod
-    def get_player_live_stats(self, player_name: str) -> Dict:
+    def get_player_live_stats(self, player_name: str, update: Optional[Update], context: Optional[CallbackContext]) -> str:
         """
         Get current/live stats for a specific player.
         
@@ -100,7 +106,7 @@ class SportsBotPlugin(ABC):
             player_name: Name of the player to get stats for
             
         Returns:
-            Dictionary containing player's current statistics
+            string containing player's current statistics
         """
         pass
 
@@ -129,6 +135,42 @@ class SportsBotPlugin(ABC):
             True if the player is supported, False otherwise
         """
         pass
+
+    @abstractmethod
+    async def handle_callback_query(self, update, context, data_dict: Dict[str, str]):
+        """
+        Handle callback query from keyboard interactions.
+        
+        Args:
+            update: Telegram update object
+            context: Telegram callback context
+            data_dict: Dictionary containing parsed callback data (e.g., {'id': '123', 'handler': 'career_stats'})
+        """
+        pass
+
+    async def callback_query_keyboard_handler(self, update, context):
+        """
+        Generic callback query keyboard handler that can be used by any plugin.
+        Expects callback_data in format: "id=<value>, handler=<handler_name>"
+        """
+        callback_data = [s.strip() for s in update.callback_query.data.split(',')]
+        
+        # Parse callback data
+        data_dict = {}
+        for item in callback_data:
+            if '=' in item:
+                key, value = item.split('=', 1)
+                data_dict[key.strip()] = value.strip()
+        
+        # Delete previous followup message
+        await context.bot.editMessageReplyMarkup(
+            chat_id=update.callback_query.message.chat.id, 
+            message_id=update.callback_query.message.message_id, 
+            reply_markup=None
+        )
+        
+        # Call the plugin's specific callback handler
+        await self.handle_callback_query(update, context, data_dict)
 
     def get_handlers(self) -> Sequence[BaseHandler]:
         """

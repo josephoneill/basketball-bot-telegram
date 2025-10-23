@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Dict, Sequence, Optional, Type
 import re
+import logging
 import telegram
 from telegram.ext import CommandHandler, BaseHandler
 from sports_bot_telegram_plugin import SportsBotPlugin
@@ -8,6 +9,8 @@ from sports_bot_telegram_plugin.types.MatchScores import MatchScores
 from .services.live_score_service import LiveScoreService
 from .services.player_service import PlayerService
 from .services.team_service import TeamService
+
+logger = logging.getLogger(__name__)
 
 
 class NBAPlugin(SportsBotPlugin):
@@ -33,20 +36,21 @@ class NBAPlugin(SportsBotPlugin):
         """
         return self.live_score_service.get_scores(team, game_date)
 
-    def get_player_career_stats(self, player_name: str) -> str:
+    async def get_player_career_stats(self, player_name: str, update=None, context=None) -> str:
         """
         Get career stats for a specific NBA player.
         
         Args:
             player_name: Name of the player to get stats for
+            update: Optional telegram update object
+            context: Optional telegram callback context
             
         Returns:
             String containing formatted career statistics
         """
-        return self.player_service.get_player_career_stats(player_name)
+        return await self.player_service.get_player_career_stats(player_name, update, context)
 
-    def get_player_live_stats(self, player_name: str, update, context) -> Dict:
-        print("Searching for live stats")
+    def get_player_live_stats(self, player_name: str, update, context) -> str:
         """
         Get current/live stats for a specific NBA player.
         
@@ -105,9 +109,11 @@ class NBAPlugin(SportsBotPlugin):
         """
         return [
         ]
+    
+    async def handle_callback_query(self, update, context, data_dict: Dict[str, str]):
+        # Do nothing for now
+        return
 
-    async def send_player_not_found_message(self, update, context):
-        await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find an NBA player with that name")
 
 def register_plugin() -> Type[SportsBotPlugin]:
     """Register the NBA plugin."""

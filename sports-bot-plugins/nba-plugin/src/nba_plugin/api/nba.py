@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from nba_plugin.util.utils import get_current_eastern_time
 from nba_api.live.nba.endpoints import ScoreBoard, BoxScore
-from nba_api.stats.endpoints import ScoreboardV2, LeagueStandingsV3, TeamGameLog
+from nba_api.stats.endpoints import ScoreboardV2, LeagueStandingsV3, TeamGameLog, PlayerGameLog
 from ..util.nba_utils import get_headers
 import socket
 
@@ -94,6 +94,11 @@ def get_most_recent_game(team_id):
     game_id = last_row[header["Game_ID"]]
 
     return game_id
+
+def get_player_gamelog(player_id):
+    log = PlayerGameLog(player_id=player_id, league_id_nullable="00").get_dict()
+
+    return log
 
 
 # def get_boxscore(game_id, game_date):

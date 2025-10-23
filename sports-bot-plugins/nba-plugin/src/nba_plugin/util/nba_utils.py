@@ -1,5 +1,6 @@
 from datetime import datetime, date
 from nba_api.stats.static import players, teams
+from nba_api.stats.endpoints import CommonPlayerInfo
 from functools import lru_cache
 from rapidfuzz import process
 
@@ -125,6 +126,20 @@ def get_team_name_map():
 
     return team_name_map
 
+def get_player_team(player_id):
+    """
+    Fetches the team name for a given player ID.
+    """
+    if player_id is None:
+        return None
+        
+    player_info = CommonPlayerInfo(player_id=player_id)
+    player_info_dict = player_info.get_normalized_dict()
+    
+    team_name = player_info_dict['CommonPlayerInfo'][0]['TEAM_ID']
+    return team_name
+
+
 def find_team_id(user_query):
     team_name_map = get_team_name_map()
     choices = list(team_name_map.keys())
@@ -157,3 +172,55 @@ def game_et_to_hh_mm(gameEt):
     time = dt.strftime('%H:%M')
 
     return f"{time} ET"
+
+def get_player_stats_from_gamelog(game, headers):
+    game_date = game[headers["GAME_DATE"]]
+    has_tense = "had"
+    points = game[headers["PTS"]]
+    rebounds = game[headers["REB"]]
+    assists = game[headers["AST"]]
+    steals = game[headers["STL"]]
+    blocks = game[headers["BLK"]]
+    field_goal_pct = int(game[headers["FG_PCT"]] * 100)
+    three_point_pct = int(game[headers["FG3_PCT"]] * 100)
+    free_throw_pct = int(game[headers["FT_PCT"]] * 100)
+    time_played = game[headers["MIN"]]
+
+    return {
+        "has_tense": has_tense,
+        "points": points,
+        "rebounds": rebounds,
+        "assists": assists,
+        "steals": steals,
+        "blocks": blocks,
+        "field_goal_pct": field_goal_pct,
+        "three_point_pct": three_point_pct,
+        "free_throw_pct": free_throw_pct,
+        "time_played": time_played,
+        "game_date": game_date
+    }
+
+def get_player_stats_from_boxscore(player_data):
+    has_tense = "has"
+    points = player_data["points"]
+    rebounds = player_data["reboundsTotal"]
+    assists = player_data["assists"]
+    steals = player_data["steals"]
+    blocks = player_data["blocks"] 
+    field_goal_pct = int(player_data["fieldGoalsPercentage"] * 100)
+    three_point_pct = int(player_data["threePointersPercentage"] * 100)
+    free_throw_pct = int(player_data["freeThrowsPercentage"] * 100)
+    time_played = game_clock_to_mm_ss(player_data["minutes"])
+
+    return {
+        "has_tense": has_tense,
+        "points": points,
+        "rebounds": rebounds,
+        "assists": assists,
+        "steals": steals,
+        "blocks": blocks,
+        "field_goal_pct": field_goal_pct,
+        "three_point_pct": three_point_pct,
+        "free_throw_pct": free_throw_pct,
+        "time_played": time_played
+    }

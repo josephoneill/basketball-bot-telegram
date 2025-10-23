@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional, Callable
 from nba_api.stats.static import players
-from ..api.nba import get_player_career_stats
-from ..util.nba_utils import find_players, get_headers, get_formatted_player_career_stats
+from ..api.nba import get_player_career_stats, get_player_gamelog, get_scoreboard, get_boxscore
+from ..util.nba_utils import get_player_team, find_players, get_headers, get_formatted_player_career_stats, get_player_stats_from_gamelog, get_game_header_set_data, get_player_stats_from_boxscore
 
 class PlayerService:
     def __init__(self, handle_multiple_players: Callable):
@@ -64,15 +64,92 @@ class PlayerService:
         # TODO: Implement formatting logic
         return f"Stats for {player_name}"
 
-    async def get_player_live_stats(self, player_name: str, update, context) -> Dict:
+    async def get_player_live_stats(self, player_name: str, update, context) -> str:
         """Get current/live stats for a specific NBA player."""
         # First, find the correct player
-        print('searching')
         players_found = find_players(player_name)
 
-        print(players_found)
-
         if len(players_found) != 1:
-            await self.handle_multiple_players(players_found, update, context, "career_stats")
-            return None
-        return {} 
+            await self.handle_multiple_players(players_found, update, context, "current_stats")
+            return ""
+        
+        player = players_found[0]
+        player_id = player["id"]
+        player_name = player["full_name"].strip()
+
+        # Then, check if player is currently playing
+        game, game_id = PlayerService._find_boxscore_id(player_id)
+        boxscore = get_boxscore(game_id) if game_id else None
+        stats = {}
+
+        if boxscore:
+            stats = PlayerService._get_stats_from_boxscore(player_id, boxscore)
+        else:
+            # If not, check their game log and report last game
+            stats = await PlayerService._get_stats_from_gamelog_game(player_id)
+
+        formatted_msg = (
+            f"{player_name} {stats.get('has_tense', '')} "
+            f"{stats.get('points')}/{stats.get('rebounds')}/{stats.get('assists')}/"
+            f"{stats.get('blocks')}/{stats.get('steals')} "
+            f"on {stats.get('field_goal_pct')}/{stats.get('three_point_pct')}/"
+            f"{stats.get('free_throw_pct')} shooting "
+            f"in {stats.get('time_played')} minutes"
+        )
+
+        if stats.get("game_date"):
+            formatted_msg += f" on {stats['game_date']}"
+
+        return formatted_msg
+    
+    @staticmethod
+    async def _get_stats_from_gamelog_game(player_id):
+        log = get_player_gamelog(player_id=player_id)
+
+        if "resultSets" not in log or len(log["resultSets"]) == 0:
+            return
+
+        resultSet = log["resultSets"][0]
+        game = resultSet["rowSet"][-1]
+        headers = get_headers(resultSet)
+
+        stats = get_player_stats_from_gamelog(game, headers)   
+        return stats 
+
+    @staticmethod
+    def _find_boxscore_id(player_id):
+        team_id = get_player_team(player_id)
+        score_board = get_scoreboard()
+        resultSets = score_board["resultSets"]
+
+        if not resultSets or len(resultSets) == 0:
+            return None, None
+                
+        gameheader = resultSets[0]
+
+        gameheader_headers = get_headers(gameheader)
+        game_header_set = get_game_header_set_data(gameheader)
+
+        for game in game_header_set:
+            home_team_id = game[gameheader_headers["HOME_TEAM_ID"]]
+            away_team_id = game[gameheader_headers["VISITOR_TEAM_ID"]]
+
+            if home_team_id == team_id or away_team_id == team_id:
+                # Return the game dataset and the game id
+                return game, game[gameheader_headers["GAME_ID"]]
+        
+        return None, None
+    
+    async def _get_stats_from_boxscore(player_id, boxscore):
+        team_id = get_player_team(player_id)
+
+        game = boxscore["game"]
+        team_data = game["homeTeam"] if game["homeTeam"]["teamId"] == team_id else game["awayTeam"]
+
+        player_data = next((player for player in team_data["players"] if player["personId"] == player_id), None)
+
+        if not player_data:
+            return
+        
+        stats = get_player_stats_from_boxscore(player_data["statistics"])
+        return stats
