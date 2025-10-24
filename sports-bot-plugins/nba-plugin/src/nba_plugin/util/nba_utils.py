@@ -224,3 +224,17 @@ def get_player_stats_from_boxscore(player_data):
         "free_throw_pct": free_throw_pct,
         "time_played": time_played
     }
+
+def format_game_status(game_status):
+    # If game_status is in format Q1, reformat. Otherwise, do nothing
+    status_mappings = {
+        "Q1": "1st Qtr",
+        "Q2": "2nd Qtr",
+        "Q3": "3rd Qtr",
+        "Q4": "4th Qtr",
+        "2OT": "2nd OT",
+        "3OT": "3rd OT",
+        "4OT": "4th OT"
+    }
+
+    return status_mappings.get(game_status, game_status)

@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional, Callable
 from nba_api.stats.static import players
-from ..api.nba import get_player_career_stats, get_player_gamelog, get_scoreboard, get_boxscore
+from ..api.nba import get_player_career_stats, get_player_gamelog, get_scoreboard, get_boxscore, get_player_profile
 from ..util.nba_utils import get_player_team, find_players, get_headers, get_formatted_player_career_stats, get_player_stats_from_gamelog, get_game_header_set_data, get_player_stats_from_boxscore
 
 class PlayerService:
@@ -54,10 +54,14 @@ class PlayerService:
         msg = get_formatted_player_career_stats(dict(headers=headers, data=career_totals["rowSet"][0]), player_name)
         return msg
 
-    def get_player_season_stats(self, career_stats: Dict, start_year: Optional[str] = None, end_year: Optional[str] = None) -> Dict:
-        """Get regular season stats for a player within a date range."""
-        # TODO: Implement filtering logic
-        return career_stats
+    async def get_player_season_stats(self, player_name: str, update, context, start_year: Optional[str] = None, end_year: Optional[str] = None) -> Dict:
+        player = await self.get_player(player_name, update, context, "season_stats")
+        if not player:
+            return player
+
+        player_profile = get_player_profile(player_id=player["id"])
+        # TODO: Implement the stats parsing
+        return {}
 
     def format_player_season_stats(self, season_stats: Dict, player_name: str) -> str:
         """Format player stats into a readable message."""
@@ -66,14 +70,10 @@ class PlayerService:
 
     async def get_player_live_stats(self, player_name: str, update, context) -> str:
         """Get current/live stats for a specific NBA player."""
-        # First, find the correct player
-        players_found = find_players(player_name)
+        player = await self.get_player(player_name, update, context, "current_stats")
+        if not player:
+            return player
 
-        if len(players_found) != 1:
-            await self.handle_multiple_players(players_found, update, context, "current_stats")
-            return ""
-        
-        player = players_found[0]
         player_id = player["id"]
         player_name = player["full_name"].strip()
 
@@ -83,7 +83,7 @@ class PlayerService:
         stats = {}
 
         if boxscore:
-            stats = PlayerService._get_stats_from_boxscore(player_id, boxscore)
+            stats = await PlayerService._get_stats_from_boxscore(player_id, boxscore)
         else:
             # If not, check their game log and report last game
             stats = await PlayerService._get_stats_from_gamelog_game(player_id)
@@ -101,6 +101,18 @@ class PlayerService:
             formatted_msg += f" on {stats['game_date']}"
 
         return formatted_msg
+    
+    async def get_player(self, player_name, update, context, requesting_command_name):
+        # First, find the correct player
+        players_found = find_players(player_name)
+
+        if len(players_found) != 1:
+            await self.handle_multiple_players(players_found, update, context, requesting_command_name)
+            return ""
+        
+        player = players_found[0]
+
+        return player
     
     @staticmethod
     async def _get_stats_from_gamelog_game(player_id):

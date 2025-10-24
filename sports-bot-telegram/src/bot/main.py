@@ -99,7 +99,7 @@ async def scores_command_handler(update, context):
                 game_date_obj = None
         else:
             game_date_obj = None
-        team_scores = plugin.get_live_scores(team, game_date_obj)
+        team_scores = await plugin.get_live_scores(team, game_date_obj)
         
         if not team_scores:
             await context.bot.send_message(
@@ -145,7 +145,7 @@ async def season_stats_command_handler(update, context, player_id = -1, start_ye
     # Try each registered plugin until we find player stats
     plugin = PluginManager.find_plugin_for_player(player_name)
     try:
-        player_stats_msg = plugin.get_player_season_stats(player_name, start_year, end_year)
+        player_stats_msg = await plugin.get_player_season_stats(player_name, start_year, end_year)
         if player_stats_msg:
             await context.bot.send_message(chat_id=update.message.chat_id, text=player_stats_msg)
             return

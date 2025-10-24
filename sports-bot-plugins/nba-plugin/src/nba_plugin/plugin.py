@@ -23,7 +23,7 @@ class NBAPlugin(SportsBotPlugin):
         self.live_score_service = LiveScoreService()
         self.team_service = TeamService()
 
-    def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
+    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
         """
         Get live scores for a specific NBA team on a given date.
         
@@ -34,7 +34,7 @@ class NBAPlugin(SportsBotPlugin):
         Returns:
             MatchScores object containing game scores and details
         """
-        return self.live_score_service.get_scores(team, game_date)
+        return await self.live_score_service.get_scores(team, game_date)
 
     async def get_player_career_stats(self, player_name: str, update=None, context=None) -> str:
         """
@@ -50,7 +50,7 @@ class NBAPlugin(SportsBotPlugin):
         """
         return await self.player_service.get_player_career_stats(player_name, update, context)
 
-    def get_player_live_stats(self, player_name: str, update, context) -> str:
+    async def get_player_live_stats(self, player_name: str, update, context) -> str:
         """
         Get current/live stats for a specific NBA player.
         
@@ -60,9 +60,9 @@ class NBAPlugin(SportsBotPlugin):
         Returns:
             Dictionary containing player's current statistics
         """
-        return self.player_service.get_player_live_stats(player_name, update, context)
+        return await self.player_service.get_player_live_stats(player_name, update, context)
 
-    def get_player_season_stats(self, player_name: str, start_year: Optional[str] = None, end_year: Optional[str] = None) -> str:
+    async def get_player_season_stats(self, player_name: str, update, context, start_year: Optional[str] = None, end_year: Optional[str] = None) -> str:
         """
         Get season stats for a specific NBA player.
         
@@ -74,7 +74,7 @@ class NBAPlugin(SportsBotPlugin):
         Returns:
             String containing formatted season statistics
         """
-        return self.player_service.get_player_season_stats(player_name, start_year, end_year)
+        return await self.player_service.get_player_season_stats(player_name, update, context, start_year, end_year)
 
     def is_team_supported(self, team: str) -> bool:
         """

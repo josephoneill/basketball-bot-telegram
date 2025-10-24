@@ -2,11 +2,11 @@ from typing import Dict, Optional, List
 from datetime import datetime
 from sports_bot_telegram_plugin.types.MatchScores import MatchScores
 from nba_plugin.api.nba import get_scoreboard, get_boxscore, get_team_record, get_most_recent_game
-from nba_plugin.util.nba_utils import game_et_to_hh_mm, game_clock_to_mm_ss, get_headers, get_current_teams_data, get_game_header_set_data, find_team_id, get_team_by_id
+from nba_plugin.util.nba_utils import game_et_to_hh_mm, game_clock_to_mm_ss, get_headers, get_current_teams_data, get_game_header_set_data, find_team_id, get_team_by_id, format_game_status
 
 
 class LiveScoreService:
-  def get_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
+  async def get_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
     score_board = get_scoreboard(date=game_date)
     resultSets = score_board["resultSets"]
 
@@ -22,9 +22,6 @@ class LiveScoreService:
     game, boxscore_id = boxscore_id_result
 
     box_score = get_boxscore(boxscore_id)
-    import json
-    with open('box_score.json', 'w') as f:
-      json.dump(box_score, f, indent=2)
 
     # There's a chance the box score for today's game isn't live yet
     # In this case, just generate a dummy score
@@ -115,7 +112,7 @@ class LiveScoreService:
        away_team=away_team_name,
        away_score=away_team_score,
        away_team_record=away_team_record,
-       game_status=game_status,
+       game_status=format_game_status(game_status.split(' ')[0]), # status may include gameclock. If so, don't include
        game_start_time=game_start_time,
        game_curr_time=game_curr_time
     )

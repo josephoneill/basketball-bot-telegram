@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from nba_plugin.util.utils import get_current_eastern_time
 from nba_api.live.nba.endpoints import ScoreBoard, BoxScore
-from nba_api.stats.endpoints import ScoreboardV2, LeagueStandingsV3, TeamGameLog, PlayerGameLog
+from nba_api.stats.endpoints import ScoreboardV2, LeagueStandingsV3, TeamGameLog, PlayerGameLog, PlayerProfileV2
 from ..util.nba_utils import get_headers
 import socket
 
@@ -110,3 +110,6 @@ def get_player_gamelog(player_id):
 #         'cdn.nba.com', referer='https://cdn.nba.com/')
 #     box_score = urlopen(req).read()
 #     return json.loads(box_score)
+
+def get_player_profile(player_id):
+    return PlayerProfileV2(player_id=player_id, per_mode36="PerGame", league_id_nullable="00").get_dict()

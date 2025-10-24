@@ -70,7 +70,7 @@ class SportsBotPlugin(ABC):
         await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
 
     @abstractmethod
-    def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
+    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
         """
         Get live scores for a specific team on a given date.
         
@@ -84,21 +84,21 @@ class SportsBotPlugin(ABC):
         pass
         
     @abstractmethod
-    def get_player_career_stats(self, player_name: str, update=None, context=None) -> str:
+    async def get_player_career_stats(self, player_name: str, update=None, context=None) -> str:
         """
         Get career stats for a specific player.
         """
         pass
 
     @abstractmethod
-    def get_player_season_stats(self, player_name: str, start_year: Optional[str] = None, end_year: Optional[str] = None) -> str:
+    async def get_player_season_stats(self, player_name: str, update: Optional[Update], context: Optional[CallbackContext], start_year: Optional[str] = None, end_year: Optional[str] = None) -> str:
         """
         Get season stats for a specific player.
         """
         pass
 
     @abstractmethod
-    def get_player_live_stats(self, player_name: str, update: Optional[Update], context: Optional[CallbackContext]) -> str:
+    async def get_player_live_stats(self, player_name: str, update: Optional[Update], context: Optional[CallbackContext]) -> str:
         """
         Get current/live stats for a specific player.
         
