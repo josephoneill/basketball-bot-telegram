@@ -171,11 +171,13 @@ async def callback_query_handler(update, context):
                 data_dict[key.strip()] = value.strip()
         
         # Delete previous followup message
-        await context.bot.editMessageReplyMarkup(
-            chat_id=update.callback_query.message.chat.id, 
-            message_id=update.callback_query.message.message_id, 
-            reply_markup=None
-        )
+        try:
+            await context.bot.delete_message(
+                chat_id=update.callback_query.message.chat.id,
+                message_id=update.callback_query.message.message_id
+            )
+        except Exception as e:
+            print(f"Failed to delete message: {e}")
         
         # Get required data
         player_id = data_dict.get('id')
