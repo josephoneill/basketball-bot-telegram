@@ -34,7 +34,7 @@ class PlayerService:
         players_found = find_players(player_name)
 
         if len(players_found) != 1:
-            await self.handle_multiple_players(players_found, update, context, "career_stats")
+            await self.handle_multiple_players(players_found, update, context, "career_stats", "nba")
             return None
 
         player = players_found[0]
@@ -132,7 +132,7 @@ class PlayerService:
         players_found = find_players(player_name)
 
         if len(players_found) != 1:
-            await self.handle_multiple_players(players_found, update, context, requesting_command_name)
+            await self.handle_multiple_players(players_found, update, context, requesting_command_name, "nba")
             return ""
         
         player = players_found[0]

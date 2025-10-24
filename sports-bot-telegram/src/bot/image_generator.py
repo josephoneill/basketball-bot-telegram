@@ -83,8 +83,9 @@ def generate_team_image(refImg, team_name, team_record, align_text_end = False):
 def generate_game_status(refImg, game_status, live_pc_time):
     game_status_width = get_text_width(refImg, game_status)
     live_pc_time_width = get_text_width(refImg, live_pc_time)
+    descender_padding = 6
     img_width = int(max(game_status_width, live_pc_time_width))
-    img = Image.new(mode='RGBA', size=(img_width, font_size * 2), color=(255, 255, 255, 255))
+    img = Image.new(mode='RGBA', size=(img_width, font_size * 2 + descender_padding), color=(255, 255, 255, 255))
     add_text_to_image(img, live_pc_time, (get_img_half_coord(img_width, live_pc_time_width), 0))
     add_text_to_image(img, game_status, (0, font_size))
     return img

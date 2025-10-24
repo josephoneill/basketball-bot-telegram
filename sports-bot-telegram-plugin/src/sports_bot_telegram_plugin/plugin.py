@@ -40,7 +40,7 @@ class SportsBotPlugin(ABC):
         self.description = ''
         self.version = ''
 
-    async def handle_none_or_mult_players_found(self, players_found, update, context, requesting_command_name, year=None):
+    async def handle_none_or_mult_players_found(self, players_found, update, context, requesting_command_name, plugin, year=None):
         """Handle cases where no players or multiple players are found."""
         if len(players_found) == 0:
             await self.send_player_not_found_message(update, context)
@@ -50,7 +50,7 @@ class SportsBotPlugin(ABC):
 
             for player_found in players_found:
                 # Build callback data with optional year parameter
-                callback_data = f"id={player_found['id']}, handler={requesting_command_name}"
+                callback_data = f"id={player_found['id']}, handler={requesting_command_name}, plugin={plugin}"
                 if year:
                     callback_data += f", year={year}"
                 
@@ -163,11 +163,16 @@ class SportsBotPlugin(ABC):
                 data_dict[key.strip()] = value.strip()
         
         # Delete previous followup message
-        await context.bot.editMessageReplyMarkup(
-            chat_id=update.callback_query.message.chat.id, 
-            message_id=update.callback_query.message.message_id, 
-            reply_markup=None
-        )
+        try:
+            await context.bot.delete_message(
+                chat_id=update.callback_query.message.chat.id,
+                message_id=update.callback_query.message.message_id
+            )
+        except Exception as e:
+            print(f"Failed to delete message: {e}")
+
+        # Acknowledge the callback to remove the "loading" animation in the UI
+        await update.callback_query.answer()
         
         # Call the plugin's specific callback handler
         await self.handle_callback_query(update, context, data_dict)

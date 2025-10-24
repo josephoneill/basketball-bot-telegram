@@ -100,8 +100,8 @@ class NBAPlugin(SportsBotPlugin):
         """
         return self.player_service.is_player_supported(player_name)
     
-    async def ft_command_handler(self, update, context):
-        player_name = ' '.join(update.message.text.split(' ')[1:])
+    async def ft_command_handler(self, update, context, player_id=""):
+        player_name = player_id if player_id else ' '.join(update.message.text.split(' ')[1:])
         player_fts_msg = await self.player_service.get_player_fts(player_name, update, context)
 
         if player_fts_msg:
@@ -126,8 +126,10 @@ class NBAPlugin(SportsBotPlugin):
         ]
     
     async def handle_callback_query(self, update, context, data_dict: Dict[str, str]):
-        # Do nothing for now
-        return
+        handler = data_dict.get("handler", "")
+        player_id = data_dict.get("id")
+        if handler == "fts":
+            await self.ft_command_handler(update.callback_query, context, player_id)
 
 
 def register_plugin() -> Type[SportsBotPlugin]:
