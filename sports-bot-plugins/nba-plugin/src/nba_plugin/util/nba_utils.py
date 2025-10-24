@@ -185,6 +185,8 @@ def get_player_stats_from_gamelog(game, headers):
     three_point_pct = int(game[headers["FG3_PCT"]] * 100)
     free_throw_pct = int(game[headers["FT_PCT"]] * 100)
     time_played = game[headers["MIN"]]
+    fta = game[headers["FTA"]]
+    ftm = game[headers["FTM"]]
 
     return {
         "has_tense": has_tense,
@@ -197,7 +199,9 @@ def get_player_stats_from_gamelog(game, headers):
         "three_point_pct": three_point_pct,
         "free_throw_pct": free_throw_pct,
         "time_played": time_played,
-        "game_date": game_date
+        "game_date": game_date,
+        "fta": fta,
+        "ftm": ftm,
     }
 
 def get_player_stats_from_boxscore(player_data):
@@ -211,6 +215,8 @@ def get_player_stats_from_boxscore(player_data):
     three_point_pct = int(player_data["threePointersPercentage"] * 100)
     free_throw_pct = int(player_data["freeThrowsPercentage"] * 100)
     time_played = game_clock_to_mm_ss(player_data["minutes"])
+    fta = player_data["freeThrowsAttempted"]
+    ftm = player_data["freeThrowsMade"]
 
     return {
         "has_tense": has_tense,
@@ -222,7 +228,9 @@ def get_player_stats_from_boxscore(player_data):
         "field_goal_pct": field_goal_pct,
         "three_point_pct": three_point_pct,
         "free_throw_pct": free_throw_pct,
-        "time_played": time_played
+        "time_played": time_played,
+        "fta": fta,
+        "ftm": ftm,
     }
 
 def format_game_status(game_status):

@@ -89,7 +89,7 @@ def get_most_recent_game(team_id):
         return
 
     # Get most recent game
-    last_row = rowset[-1]
+    last_row = rowset[0]
 
     game_id = last_row[header["Game_ID"]]
 

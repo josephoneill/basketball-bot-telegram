@@ -59,7 +59,9 @@ def get_player_name_and_years(msg, id=-1, start_year=-1, end_year=-1):
     return player_name_input, start_year, end_year
 
 async def unknown(update, context):
-    await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I didn't understand that command")
+    # Privacy mode is off, don't send a message for unknown commands
+    return
+    # await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I didn't understand that command")
 
 async def send_invalid_message(update, context):
    await context.bot.send_message(chat_id=update.message.chat_id, text="Invalid input")
@@ -262,12 +264,12 @@ if __name__ == '__main__':
     # Add callback query handler
     callback_query_handler_instance = CallbackQueryHandler(callback_query_handler)
     application.add_handler(callback_query_handler_instance)
+    
+    # Register all plugin handlers
+    PluginManager.setup_plugin_handlers(application)
 
     unknown_handler = MessageHandler(telegram.ext.filters.COMMAND, unknown)
     application.add_handler(unknown_handler)
-
-    # Register all plugin handlers
-    PluginManager.setup_plugin_handlers(application)
 
     logger.info("Starting bot...")
     application.run_polling() 

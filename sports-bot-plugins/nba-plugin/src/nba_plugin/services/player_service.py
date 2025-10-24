@@ -78,7 +78,7 @@ class PlayerService:
         player_name = player["full_name"].strip()
 
         # Then, check if player is currently playing
-        game, game_id = PlayerService._find_boxscore_id(player_id)
+        _, game_id = PlayerService._find_boxscore_id(player_id)
         boxscore = get_boxscore(game_id) if game_id else None
         stats = {}
 
@@ -102,6 +102,31 @@ class PlayerService:
 
         return formatted_msg
     
+    async def get_player_fts(self, player_name, update, context):
+        player = await self.get_player(player_name, update, context, "fts")
+        if not player:
+            return player
+        
+        player_id = player["id"]
+        player_name = player["full_name"].strip()
+
+        _, game_id = PlayerService._find_boxscore_id(player_id)
+        boxscore = get_boxscore(game_id) if game_id else None
+        stats = {}
+
+        if boxscore:
+            stats = await PlayerService._get_stats_from_boxscore(player_id, boxscore)
+        else:
+            # If not, check their game log and report last game
+            stats = await PlayerService._get_stats_from_gamelog_game(player_id)
+
+        formatted_msg = f"{player_name} {stats.get('has_tense')} shot {stats.get('ftm')}/{stats.get('fta')} FTA"
+        if stats.get("game_date"):
+            formatted_msg += f" on {stats['game_date']}"
+
+        return formatted_msg
+
+    
     async def get_player(self, player_name, update, context, requesting_command_name):
         # First, find the correct player
         players_found = find_players(player_name)
@@ -113,7 +138,7 @@ class PlayerService:
         player = players_found[0]
 
         return player
-    
+        
     @staticmethod
     async def _get_stats_from_gamelog_game(player_id):
         log = get_player_gamelog(player_id=player_id)
@@ -122,7 +147,7 @@ class PlayerService:
             return
 
         resultSet = log["resultSets"][0]
-        game = resultSet["rowSet"][-1]
+        game = resultSet["rowSet"][0]
         headers = get_headers(resultSet)
 
         stats = get_player_stats_from_gamelog(game, headers)   

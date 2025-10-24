@@ -99,6 +99,20 @@ class NBAPlugin(SportsBotPlugin):
             True if the player is supported, False otherwise
         """
         return self.player_service.is_player_supported(player_name)
+    
+    async def ft_command_handler(self, update, context):
+        player_name = ' '.join(update.message.text.split(' ')[1:])
+        player_fts_msg = await self.player_service.get_player_fts(player_name, update, context)
+
+        if player_fts_msg:
+            await context.bot.send_message(chat_id=update.message.chat_id, text=player_fts_msg)
+            return
+
+        # Mutliple players found
+        if player_fts_msg == "":
+            return
+
+        await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
 
     def get_handlers(self) -> Sequence[BaseHandler]:
         """
@@ -108,6 +122,7 @@ class NBAPlugin(SportsBotPlugin):
             List of telegram command handlers
         """
         return [
+            CommandHandler('fts', self.ft_command_handler)
         ]
     
     async def handle_callback_query(self, update, context, data_dict: Dict[str, str]):
