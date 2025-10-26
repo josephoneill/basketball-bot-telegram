@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Sequence
 from datetime import datetime
 import telegram
 from telegram.ext import BaseHandler, CallbackContext
-from telegram import Update
+from telegram import Update, BotCommand
 from .types.MatchScores import MatchScores
 
 class SportsBotPlugin(ABC):
@@ -39,6 +39,7 @@ class SportsBotPlugin(ABC):
         self.name = ''
         self.description = ''
         self.version = ''
+        self.commands: list[BotCommand] = []
 
     async def handle_none_or_mult_players_found(self, players_found, update, context, requesting_command_name, plugin, year=None):
         """Handle cases where no players or multiple players are found."""

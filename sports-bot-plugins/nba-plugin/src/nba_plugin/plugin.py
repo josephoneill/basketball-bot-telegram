@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, Sequence, Optional, Type
 import re
 import logging
-import telegram
+from telegram import BotCommand
 from telegram.ext import CommandHandler, BaseHandler
 from sports_bot_telegram_plugin import SportsBotPlugin
 from sports_bot_telegram_plugin.types.MatchScores import MatchScores
@@ -18,7 +18,10 @@ class NBAPlugin(SportsBotPlugin):
         super().__init__()
         self.name = "NBA"
         self.description = "NBA plugin for sports-bot-telegram"
-        self.version = "0.1.1"
+        self.version = "1.1.3"
+        self.commands = [
+            BotCommand("fts", "Get player free throw stats"),
+        ]
         self.player_service = PlayerService(self.handle_none_or_mult_players_found)
         self.live_score_service = LiveScoreService()
         self.team_service = TeamService()

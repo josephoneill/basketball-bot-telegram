@@ -4,7 +4,7 @@ from typing import List, Dict
 
 import telegram
 from pytz import timezone
-from telegram import InlineQueryResultArticle, InputTextMessageContent
+from telegram import InlineQueryResultArticle, InputTextMessageContent, BotCommand
 from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler
 from telegram.ext import InlineQueryHandler
 from telegram.ext import CallbackQueryHandler
@@ -12,13 +12,20 @@ from telegram.ext import CallbackQueryHandler
 from .settings import TELEGRAM_TOKEN
 from .image_generator import generate_score_img, delete_img
 from .plugin_management import PluginManager
+from importlib.metadata import version, PackageNotFoundError
 import re
+import asyncio
 
 # setup logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
 logger = logging.getLogger(__name__)
+
+try:
+    BOT_VERSION = version("sports-bot-telegram")
+except PackageNotFoundError:
+    BOT_VERSION = "1.1.3"
 
 async def start(update, context):
     # This is the unicode for a cowboy :)
@@ -63,11 +70,18 @@ async def unknown(update, context):
     return
     # await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I didn't understand that command")
 
+
 async def send_invalid_message(update, context):
    await context.bot.send_message(chat_id=update.message.chat_id, text="Invalid input")
 
 async def send_player_not_found_message(update, context):
     await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
+
+async def version_command_handler(update, context):
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"Bot version: {BOT_VERSION}"
+    )
 
 async def scores_command_handler(update, context):
     formatted_message = get_formatted_input_message(update.message.text).split()
@@ -244,12 +258,36 @@ async def career_stats_command_handler(update, context, player_id=-1):
         await send_player_not_found_message(update, context)
 
 
-if __name__ == '__main__':
-    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+async def set_commands(application):
+    commands = [
+        BotCommand("start", "Start the bot"),
+        BotCommand("version", "View the current bot version"),
+        BotCommand("scores", "Get live or historic scores"),
+        BotCommand("stats", "Get current player stats"),
+        BotCommand("seasonstats", "Get player season stats"),
+        BotCommand("careerstats", "Get player career stats"),
+    ]
+
+    plugins = PluginManager.get_all_plugins()
+
+    for plugin in plugins:
+        commands.extend(plugin.commands)
+
+    await application.bot.set_my_commands(commands)
+
+async def post_init(application):
+    await set_commands(application)
+
+
+def main():
+    application = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(post_init).build()
 
     # Register core handlers
     start_handler = CommandHandler('start', start)
     application.add_handler(start_handler)
+
+    version_handler = CommandHandler('version', version_command_handler)
+    application.add_handler(version_handler)
 
     scores_handler = CommandHandler('scores', scores_command_handler)
     application.add_handler(scores_handler)
@@ -275,3 +313,7 @@ if __name__ == '__main__':
 
     logger.info("Starting bot...")
     application.run_polling() 
+
+
+if __name__ == '__main__':
+    main()
