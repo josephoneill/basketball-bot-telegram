@@ -18,7 +18,7 @@ class NBAPlugin(SportsBotPlugin):
         super().__init__()
         self.name = "NBA"
         self.description = "NBA plugin for sports-bot-telegram"
-        self.version = "1.1.3"
+        self.version = "1.1.5"
         self.commands = [
             BotCommand("fts", "Get player free throw stats"),
         ]
