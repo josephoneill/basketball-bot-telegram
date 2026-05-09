@@ -65,6 +65,7 @@ def get_team_record(team_id):
             headers = data['resultSets'][0]['headers']
             team_data = dict(zip(headers, team))
             if team_data["TeamID"] == team_id:
+                print(team_data)
                 wins = team_data["WINS"]
                 losses = team_data["LOSSES"]
 
@@ -72,28 +73,46 @@ def get_team_record(team_id):
     except Exception as e:
         print(f"Error fetching league standings: {e}")
         return None
-    
+
 
 def get_most_recent_game(team_id):
-    gamelog = TeamGameLog(team_id=team_id, league_id_nullable="00").get_dict()
+    reg_log = TeamGameLog(team_id=team_id, season_type_all_star="Regular Season", league_id_nullable="00").get_dict()
+    post_log = TeamGameLog(team_id=team_id, season_type_all_star="Playoffs", league_id_nullable="00").get_dict()
 
-    resultSet = gamelog["resultSets"][0]
+    headers = []
+    def extract_latest(gamelog):
+        nonlocal headers
+        resultSet = gamelog["resultSets"][0]
 
-    if not resultSet:
-        return
+        if not resultSet:
+            return
 
-    header = get_headers(resultSet)
-    rowset = resultSet["rowSet"]
+        headers = get_headers(resultSet)
 
-    if not rowset:
-        return
+        rowset = resultSet["rowSet"]
 
-    # Get most recent game
-    last_row = rowset[0]
+        if not rowset:
+            return
 
-    game_id = last_row[header["Game_ID"]]
+        # Get most recent game
+        return rowset[0]
 
-    return game_id
+    last_reg = extract_latest(reg_log)
+    last_post = extract_latest(post_log)
+
+    # Find latest game between regular season and post season
+    if last_reg and last_post:
+        reg_date = datetime.strptime(last_reg[headers['GAME_DATE']], '%b %d, %Y')
+        post_date = datetime.strptime(last_post[headers['GAME_DATE']], '%b %d, %Y')
+        
+        return last_post[headers['Game_ID']] if post_date > reg_date else last_reg[header['Game_ID']]
+    
+    # Fallbacks
+    if last_post: return last_post[headers['Game_ID']]
+    if last_reg: return last_reg[headers['Game_ID']]
+    
+    return None
+
 
 def get_player_gamelog(player_id):
     log = PlayerGameLog(player_id=player_id, league_id_nullable="00").get_dict()
