@@ -1,3 +1,5 @@
+from datetime import datetime
+from logging import log
 from typing import List, Dict, Optional, Callable
 from nba_api.stats.static import players
 from ..api.nba import get_player_career_stats, get_player_gamelog, get_scoreboard, get_boxscore, get_player_profile
@@ -141,14 +143,34 @@ class PlayerService:
         
     @staticmethod
     async def _get_stats_from_gamelog_game(player_id):
-        log = get_player_gamelog(player_id=player_id)
+        reg_log = get_player_gamelog(player_id=player_id)
+        post_log = get_player_gamelog(player_id=player_id, season_type="Playoffs")
+        headers = []
 
-        if "resultSets" not in log or len(log["resultSets"]) == 0:
-            return
+        def extract_latest(log):
+            nonlocal headers
+            if "resultSets" not in log or len(log["resultSets"]) == 0:
+                return
+        
+            resultSet = log["resultSets"][0]
+            headers = get_headers(resultSet)
+            game = resultSet["rowSet"][0]
 
-        resultSet = log["resultSets"][0]
-        game = resultSet["rowSet"][0]
-        headers = get_headers(resultSet)
+            return game
+
+        last_reg = extract_latest(reg_log)
+        last_post = extract_latest(post_log)
+
+        game = last_reg
+
+        # Find latest game between regular season and post season
+        if last_reg and last_post:
+            reg_date = datetime.strptime(last_reg[headers['GAME_DATE']], '%b %d, %Y')
+            post_date = datetime.strptime(last_post[headers['GAME_DATE']], '%b %d, %Y')
+            
+            game = last_post if post_date > reg_date else last_reg
+        elif last_post:
+            game = last_post
 
         stats = get_player_stats_from_gamelog(game, headers)   
         return stats 

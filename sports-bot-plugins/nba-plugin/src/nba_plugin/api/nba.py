@@ -26,7 +26,7 @@ def get_player_career_stats(player_id):
 
 def get_live_scoreboard(date=None):
     try:
-        score_board = ScoreBoard()
+        score_board = ScoreBoard(headers={'Referer': 'https://www.nba.com/'})
         return score_board.get_dict()
     except Exception as e:
         print(f"Error fetching live scoreboard: {e}")
@@ -46,7 +46,8 @@ def get_scoreboard(date=None):
     
 def get_boxscore(game_id):
     try:
-        box_score = BoxScore(game_id=game_id)
+        print("boxscore for game id", game_id)
+        box_score = BoxScore(game_id=game_id, headers={'Referer': 'https://www.nba.com/'})
     except Exception as e:
         print(f"Error fetching boxscore: {e}")
         return None
@@ -114,8 +115,8 @@ def get_most_recent_game(team_id):
     return None
 
 
-def get_player_gamelog(player_id):
-    log = PlayerGameLog(player_id=player_id, league_id_nullable="00").get_dict()
+def get_player_gamelog(player_id, season_type="Regular Season"):
+    log = PlayerGameLog(player_id=player_id, season_type_all_star=season_type, league_id_nullable="00").get_dict()
 
     return log
 
