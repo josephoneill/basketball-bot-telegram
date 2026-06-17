@@ -8,10 +8,11 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.12"
 python-telegram-bot = "^21.0.0"
 sports-bot-telegram-plugin = {path = "../sports-bot-telegram-plugin", develop = true}
 nba-plugin = { path = "../sports-bot-plugins/nba-plugin", develop = true }
+fifa-world-cup-plugin = { path = "../sports-bot-plugins/fifa-world-cup-plugin", develop = true }
 pytz = "^2024.1"
 python-dotenv = "^1.0.0"
 Pillow = "^10.0.0"

@@ -5,6 +5,7 @@ from PIL import ImageFont
 from PIL import ImageDraw
 import io
 import os
+from urllib.request import Request, urlopen
 from sports_bot_telegram_plugin.types.MatchScores import MatchScores
 from rapidfuzz import process
 
@@ -19,8 +20,19 @@ proximaNovaFont = ImageFont.truetype("assets/fonts/proximanova-regular.ttf", fon
 
 def generate_score_img(team_scores: MatchScores):
     img = Image.new(mode='RGBA', size=(score_img_width, score_img_height), color=(255, 255, 255, 255))
-    home_team_img = generate_team_image(img, team_scores.home_team, f"({team_scores.home_team_record})")
-    away_team_img = generate_team_image(img, team_scores.away_team, f"({team_scores.away_team_record})", True)
+    home_team_img = generate_team_image(
+        img,
+        team_scores.home_team,
+        f"({team_scores.home_team_record})",
+        logo_url=getattr(team_scores, "home_team_logo_url", None),
+    )
+    away_team_img = generate_team_image(
+        img,
+        team_scores.away_team,
+        f"({team_scores.away_team_record})",
+        True,
+        logo_url=getattr(team_scores, "away_team_logo_url", None),
+    )
     team_score_img = generate_team_score_img(
         img,
         team_scores.home_score,
@@ -58,9 +70,9 @@ def get_img_half_coord(baseImgDim, refImgDim):
     return int(baseImgDim / 2 - refImgDim / 2)
 
 
-def generate_team_image(refImg, team_name, team_record, align_text_end = False):
+def generate_team_image(refImg, team_name, team_record, align_text_end = False, logo_url=None):
     y = vertical_padding
-    team_logo = load_team_logo(team_name, int(logo_img_width))
+    team_logo = load_team_logo(team_name, int(logo_img_width), logo_url=logo_url)
     height = team_logo.size[1] + vertical_padding + (int(text_padding * 1)) + (font_size * 2)
 
     team_text_width = get_text_width(refImg, team_name)
@@ -150,8 +162,23 @@ def find_team_image(team_name):
     team_logo = Image.open(logo_path)
     return team_logo
 
-def load_team_logo(team_name, width=200):
-    team_logo = find_team_image(team_name.lower().replace(" ", "_"))
+def _load_team_logo_from_url(logo_url):
+    if not logo_url or not logo_url.startswith(("http://", "https://")):
+        return None
+
+    try:
+        req = Request(logo_url, headers={"User-Agent": "sports-bot-telegram"})
+        with urlopen(req, timeout=5) as response:
+            payload = response.read()
+        return Image.open(io.BytesIO(payload)).convert("RGBA")
+    except Exception:
+        return None
+
+
+def load_team_logo(team_name, width=200, logo_url=None):
+    team_logo = _load_team_logo_from_url(logo_url)
+    if team_logo is None:
+        team_logo = find_team_image(team_name.lower().replace(" ", "_"))
     team_logo = resize_width(team_logo, width)
     return team_logo
 

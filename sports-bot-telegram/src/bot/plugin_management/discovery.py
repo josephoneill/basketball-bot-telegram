@@ -27,7 +27,13 @@ class PluginManager:
             return
 
         # Discover plugins via entry points
-        for entry_point in importlib.metadata.entry_points().get('sports_bot_telegram_plugins', []):
+        entry_points = importlib.metadata.entry_points()
+        if hasattr(entry_points, "select"):
+            plugin_entry_points = entry_points.select(group="sports_bot_telegram_plugins")
+        else:
+            plugin_entry_points = entry_points.get("sports_bot_telegram_plugins", [])
+
+        for entry_point in plugin_entry_points:
             try:
                 register_func = entry_point.load()
                 plugin_class = register_func()
@@ -42,7 +48,7 @@ class PluginManager:
         cls._initialized = True
 
     @classmethod
-    def find_plugin_for_team(cls, team: str) -> Optional[SportsBotPlugin]:
+    async def find_plugin_for_team(cls, team: str) -> Optional[SportsBotPlugin]:
         """
         Find a plugin that supports the given team.
         
@@ -54,12 +60,12 @@ class PluginManager:
         """
         cls._initialize()
         for plugin in cls._plugin_instances.values():
-            if plugin.is_team_supported(team):
+            if await plugin.is_team_supported(team):
                 return plugin
         return None
     
     @classmethod
-    def find_plugin_for_player(cls, player_name: str) -> Optional[SportsBotPlugin]:
+    async def find_plugin_for_player(cls, player_name: str) -> Optional[SportsBotPlugin]:
         """
         Find a plugin that supports the given player.
         
@@ -71,7 +77,7 @@ class PluginManager:
         """
         cls._initialize()
         for plugin in cls._plugin_instances.values():
-            if plugin.is_player_supported(player_name):
+            if await plugin.is_player_supported(player_name):
                 return plugin
         return None
 

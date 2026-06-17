@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 try:
     BOT_VERSION = version("sports-bot-telegram")
 except PackageNotFoundError:
-    BOT_VERSION = "1.1.3"
+    BOT_VERSION = "1.1.4"
 
 async def start(update, context):
     # This is the unicode for a cowboy :)
@@ -90,7 +90,7 @@ async def scores_command_handler(update, context):
     if len(formatted_message) > 1:
         game_date = formatted_message[1]
 
-    plugin = PluginManager.find_plugin_for_team(team)
+    plugin = await PluginManager.find_plugin_for_team(team)
     if not plugin:
         await context.bot.send_message(
             chat_id=update.message.chat_id, 
@@ -138,7 +138,7 @@ async def current_stats_command_handler(update, context, player_id=-1):
     formatted_message = get_formatted_input_message(update.message.text) if player_id == -1 else player_id
     
     # Try each registered plugin until we find player stats
-    plugin = PluginManager.find_plugin_for_player(formatted_message)
+    plugin = await PluginManager.find_plugin_for_player(formatted_message)
 
     if not plugin:
         return
@@ -159,9 +159,12 @@ async def current_stats_command_handler(update, context, player_id=-1):
 async def season_stats_command_handler(update, context, player_id = -1, start_year=-1, end_year=-1):
     player_name, start_year, end_year = get_player_name_and_years(update.message, player_id, start_year, end_year)
     # Try each registered plugin until we find player stats
-    plugin = PluginManager.find_plugin_for_player(player_name)
+    plugin = await PluginManager.find_plugin_for_player(player_name)
+    if not plugin:
+        await send_player_not_found_message(update, context)
+        return
     try:
-        player_stats_msg = await plugin.get_player_season_stats(player_name, start_year, end_year)
+        player_stats_msg = await plugin.get_player_season_stats(player_name, update, context, start_year, end_year)
         if player_stats_msg:
             await context.bot.send_message(chat_id=update.message.chat_id, text=player_stats_msg)
             return
@@ -247,7 +250,10 @@ async def _handle_predefined_callback(update, context, player_id, handler, year)
 
 async def career_stats_command_handler(update, context, player_id=-1):
     player_name, _, _ = get_player_name_and_years(update.message, player_id)
-    plugin = PluginManager.find_plugin_for_player(player_name)
+    plugin = await PluginManager.find_plugin_for_player(player_name)
+    if not plugin:
+        await send_player_not_found_message(update, context)
+        return
     try:
         player_stats_msg = await plugin.get_player_career_stats(player_name, update, context)
         if player_stats_msg:
