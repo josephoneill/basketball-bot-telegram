@@ -71,7 +71,7 @@ class SportsBotPlugin(ABC):
         await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
 
     @abstractmethod
-    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
+    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores | None:
         """
         Get live scores for a specific team on a given date.
         
@@ -84,21 +84,18 @@ class SportsBotPlugin(ABC):
         """
         pass
         
-    @abstractmethod
     async def get_player_career_stats(self, player_name: str, update=None, context=None) -> str:
         """
         Get career stats for a specific player.
         """
-        pass
+        return "This plugin does not support player career stats."
 
-    @abstractmethod
     async def get_player_season_stats(self, player_name: str, update: Optional[Update], context: Optional[CallbackContext], start_year: Optional[str] = None, end_year: Optional[str] = None) -> str:
         """
         Get season stats for a specific player.
         """
-        pass
+        return "This plugin does not support player season stats."
 
-    @abstractmethod
     async def get_player_live_stats(self, player_name: str, update: Optional[Update], context: Optional[CallbackContext]) -> str:
         """
         Get current/live stats for a specific player.
@@ -109,10 +106,10 @@ class SportsBotPlugin(ABC):
         Returns:
             string containing player's current statistics
         """
-        pass
+        return "This plugin does not support player live stats."
 
     @abstractmethod
-    def is_team_supported(self, team: str) -> bool:
+    async def is_team_supported(self, team: str) -> bool:
         """
         Check if a team is supported by this plugin.
         
@@ -124,8 +121,7 @@ class SportsBotPlugin(ABC):
         """
         pass
 
-    @abstractmethod
-    def is_player_supported(self, player_name: str) -> bool:
+    async def is_player_supported(self, player_name: str) -> bool:
         """
         Check if a player is supported by this plugin.
 
@@ -135,9 +131,8 @@ class SportsBotPlugin(ABC):
         Returns:
             True if the player is supported, False otherwise
         """
-        pass
+        return False
 
-    @abstractmethod
     async def handle_callback_query(self, update, context, data_dict: Dict[str, str]):
         """
         Handle callback query from keyboard interactions.
@@ -147,7 +142,10 @@ class SportsBotPlugin(ABC):
             context: Telegram callback context
             data_dict: Dictionary containing parsed callback data (e.g., {'id': '123', 'handler': 'career_stats'})
         """
-        pass
+        await context.bot.send_message(
+            chat_id=update.callback_query.message.chat.id,
+            text="This plugin does not support interactive player callbacks."
+        )
 
     async def callback_query_keyboard_handler(self, update, context):
         """
