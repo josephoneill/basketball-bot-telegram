@@ -46,7 +46,6 @@ def get_scoreboard(date=None):
     
 def get_boxscore(game_id):
     try:
-        print("boxscore for game id", game_id)
         box_score = BoxScore(game_id=game_id, headers={'Referer': 'https://www.nba.com/'})
     except Exception as e:
         print(f"Error fetching boxscore: {e}")
@@ -66,7 +65,6 @@ def get_team_record(team_id):
             headers = data['resultSets'][0]['headers']
             team_data = dict(zip(headers, team))
             if team_data["TeamID"] == team_id:
-                print(team_data)
                 wins = team_data["WINS"]
                 losses = team_data["LOSSES"]
 
