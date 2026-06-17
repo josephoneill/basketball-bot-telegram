@@ -79,7 +79,7 @@ class NBAPlugin(SportsBotPlugin):
         """
         return await self.player_service.get_player_season_stats(player_name, update, context, start_year, end_year)
 
-    def is_team_supported(self, team: str) -> bool:
+    async def is_team_supported(self, team: str) -> bool:
         """
         Check if an NBA team is supported by this plugin.
         
@@ -91,7 +91,7 @@ class NBAPlugin(SportsBotPlugin):
         """
         return self.team_service.is_team_supported(team)
     
-    def is_player_supported(self, player_name: str) -> bool:
+    async def is_player_supported(self, player_name: str) -> bool:
         """
         Check if an NBA player is supported by this plugin.
         

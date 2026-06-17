@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{include = "nba_plugin", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.12"
 sports-bot-telegram-plugin = {path = "../../sports-bot-telegram-plugin", develop = true}
 python-telegram-bot = "^21.0.0"
 nba-api = "^1.10.2"
