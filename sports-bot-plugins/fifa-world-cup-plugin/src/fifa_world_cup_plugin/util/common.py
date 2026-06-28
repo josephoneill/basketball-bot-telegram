@@ -48,7 +48,7 @@ def timestamp_to_eastern(value):
   else:
     dt = datetime.fromtimestamp(float(value), tz=eastern)
 
-  return dt.strftime('%m-%d %H:%M:%S %Z')
+  return dt.strftime('%m/%d %-I:%M %p')
 
 
 def find_team_id_with_match_fallback(

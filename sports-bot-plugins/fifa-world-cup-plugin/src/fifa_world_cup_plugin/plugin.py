@@ -16,6 +16,7 @@ class FifaWorldCupPlugin(SportsBotPlugin):
   def __init__(self):
     super().__init__()
     self.name = "FIFA World Cup"
+    self.common_name = "fifa"
     self.description = "FIFA World Cup plugin for sports-bot-telegram"
     self.version = "1.0.0"
     self.commands = []
@@ -29,18 +30,19 @@ class FifaWorldCupPlugin(SportsBotPlugin):
        self.live_score_service = FootballAPILiveScoreService()
        self.team_service = FootballAPITeamService()
 
-  async def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores | None:
+  async def get_live_scores(self, team: str, game_date: Optional[datetime] = None, extra_params: Optional[Dict[str, str]] = None) -> MatchScores | None:
       """
       Get live scores for a specific FIFA World Cup team.
       
       Args:
           team: Team name or identifier
           game_date: Optional date to get scores for. If None, gets current/most recent game.
+          extra_params: Optional plugin-specific parameters (currently unused).
           
       Returns:
           MatchScores object containing game scores and details, or None if no match is found
       """
-      return await self.live_score_service.get_scores(team)
+      return await self.live_score_service.get_scores(team, extra_params=extra_params)
 
 
   async def is_team_supported(self, team: str) -> bool:

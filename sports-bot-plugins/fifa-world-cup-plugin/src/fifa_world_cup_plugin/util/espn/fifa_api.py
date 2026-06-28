@@ -42,3 +42,7 @@ class FifaApi():
     
     async def get_schedule(self, team_id):
         return await self._call(f'teams/{team_id}/schedule')
+
+    @cached('full_world_cup_schedule')
+    async def get_full_world_cup_schedule(self):
+        return await self._call('scoreboard', params={'dates': '20260611-20260719', 'limit': '950'})

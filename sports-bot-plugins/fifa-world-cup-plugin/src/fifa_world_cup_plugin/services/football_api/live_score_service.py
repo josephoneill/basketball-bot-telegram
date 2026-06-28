@@ -6,7 +6,7 @@ class LiveScoreService():
   def __init__(self):
       self.fifa_utils = FifaUtils()
 
-  async def get_scores(self, team):
+  async def get_scores(self, team, extra_params=None) -> MatchScores | None:
       """
       Get live scores for a specific FIFA World Cup team
       

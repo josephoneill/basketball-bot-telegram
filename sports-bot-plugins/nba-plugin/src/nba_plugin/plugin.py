@@ -17,8 +17,9 @@ class NBAPlugin(SportsBotPlugin):
     def __init__(self):
         super().__init__()
         self.name = "NBA"
+        self.common_name = "nba"
         self.description = "NBA plugin for sports-bot-telegram"
-        self.version = "1.1.5"
+        self.version = "1.1.6"
         self.commands = [
             BotCommand("fts", "Get player free throw stats"),
         ]
@@ -26,13 +27,14 @@ class NBAPlugin(SportsBotPlugin):
         self.live_score_service = LiveScoreService()
         self.team_service = TeamService()
 
-    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores:
+    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None, extra_params: Optional[Dict[str, str]] = None) -> MatchScores:
         """
         Get live scores for a specific NBA team on a given date.
         
         Args:
             team: Team name or identifier
             game_date: Optional date to get scores for. If None, gets current/most recent game.
+            extra_params: Optional plugin-specific parameters (currently unused).
             
         Returns:
             MatchScores object containing game scores and details

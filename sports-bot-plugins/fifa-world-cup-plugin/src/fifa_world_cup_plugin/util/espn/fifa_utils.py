@@ -43,9 +43,10 @@ class FifaUtils():
         return match['status']['type']['description']
     
     def get_match_time(self, match):
-        time = match['status']['displayClock']
+        if match.get('status', {}).get('type', {}).get('state') == 'pre':
+            return format_timestamp_to_eastern(match.get('startDate'))
 
-        return time
+        return match['status']['displayClock']
     
     async def get_team_standings(self, team_id):
         standings = await self.fifa_api.get_standings()
@@ -69,8 +70,8 @@ class FifaUtils():
         if not events:
             return None
 
-        last_event = events[-1]
-        event_date = last_event.get('date')
+        lastest_event = events[0]
+        event_date = lastest_event.get('date')
         if not event_date:
             return None
 
@@ -80,6 +81,27 @@ class FifaUtils():
 
         scoreboard = await self.fifa_api.get_scoreboard(eastern_scoreboard_date)
         return self.get_match_by_team(scoreboard, team_id)
+
+    async def get_next_match_by_team(self, team_id):
+        schedule = await self.fifa_api.get_full_world_cup_schedule()
+        events = schedule.get('events', [])
+        if not events:
+            return None
+
+        now_utc = datetime.now(ZoneInfo('UTC'))
+        events_by_team = [
+            event for event in events
+            if any(competitor.get('id') == team_id for competitor in event.get('competitions', [])[0].get('competitors', []))
+            and event.get('date')
+            and datetime.fromisoformat(event['date'].replace('Z', '+00:00')) >= now_utc
+        ]
+        if not events_by_team:
+            return None
+
+        # Sort events by date and find the next match (closest date in the future)
+        events_by_team.sort(key=lambda event: event.get('date'))
+        competitions = events_by_team[0].get('competitions', [])
+        return competitions[0] if competitions else None
 
     def _get_eastern_scoreboard_date(self, event_date):
         try:

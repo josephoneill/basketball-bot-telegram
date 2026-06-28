@@ -6,12 +6,13 @@ class LiveScoreService():
   def __init__(self):
       self.fifa_utils = FifaUtils()
 
-  async def get_scores(self, team):
+  async def get_scores(self, team, extra_params=None) -> MatchScores | None:
       """
       Get live scores for a specific FIFA World Cup team
       
       Args:
           team: Team name or identifier
+          extra_params: Additional parameters for the API call (optional)
           
       Returns:
           MatchScores object containing game scores and details
@@ -20,18 +21,19 @@ class LiveScoreService():
       # Find team_id
       team_id = await self.fifa_utils.find_team_id(team)
 
-      # Check if team is currently playing
-      live_scores = await self.fifa_utils.get_live_scores()
-      match = self.fifa_utils.get_match_by_team(live_scores, team_id)
+      if extra_params and 'next' in extra_params:
+        match = await self.fifa_utils.get_next_match_by_team(team_id)
+      else:
+        # Check if team is currently playing
+        live_scores = await self.fifa_utils.get_live_scores()
+        match = self.fifa_utils.get_match_by_team(live_scores, team_id)
+
+        # game_fixture not found, use previous game
+        if not match:
+          match = await self.fifa_utils.get_previous_match_by_team(team_id)
 
       if not match:
-        match = await self.fifa_utils.get_previous_match_by_team(team_id)
-
-      # game_fixture not found, use previous game
-      if not match:
-         match = None # await self.fifa_utils.get_previous_fixture_by_team(team_id)
-         if not match:
-            return
+         return None
          
       home_team = match.get('competitors')[0]
       away_team = match.get('competitors')[1]
