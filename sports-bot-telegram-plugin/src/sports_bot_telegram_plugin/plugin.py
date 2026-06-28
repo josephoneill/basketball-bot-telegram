@@ -37,6 +37,7 @@ class SportsBotPlugin(ABC):
     def __init__(self):
         """Initialize the plugin."""
         self.name = ''
+        self.common_name = ''
         self.description = ''
         self.version = ''
         self.commands: list[BotCommand] = []
@@ -71,13 +72,17 @@ class SportsBotPlugin(ABC):
         await context.bot.send_message(chat_id=update.message.chat_id, text="Sorry, I could not find a player with that name")
 
     @abstractmethod
-    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None) -> MatchScores | None:
+    async def get_live_scores(self, team: str, game_date: Optional[datetime] = None, extra_params: Optional[Dict[str, str]] = None) -> MatchScores | None:
         """
         Get live scores for a specific team on a given date.
         
         Args:
             team: Team name or identifier
             game_date: Optional date to get scores for. If None, gets current/most recent game.
+            extra_params: Optional dict of plugin-specific parameters parsed from the
+                user's command. Reserved flags (``-d``, ``-plugin``) are stripped out
+                by the core bot; all other ``-flag value`` pairs are passed here for
+                the plugin to interpret as it sees fit.
             
         Returns:
             MatchScores object containing game scores and details
