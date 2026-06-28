@@ -28,6 +28,23 @@ Examples of valid syntax
 Examples of valid syntax
 + `/stats LeBron James`
 
+### `/scores {Team Name} [-d {Date}] [-plugin {plugin name}] [-{custom} {value}]...`
++ Returns the live or historic scores for the given team. The team name can contain spaces — everything up until the first `-flag` is treated as the team.
+
+Supported flags:
++ `-d {date}` — Game date to look up. Accepted formats: `MM-DD-YYYY`, `MM-DD-YY`, `YYYY-MM-DD`.
++ `-plugin {common name}` — Force the lookup to use a specific plugin by its registered common name (e.g. `nba`, `fifa`). Useful when multiple plugins could match the team.
++ Any other `-flag value` pair is forwarded to the selected plugin as a free-form parameter; plugins may interpret these however they like.
+
+Flag values consume every token up to the next flag, so multi-word values are supported (e.g. `-note last game`).
+
+Examples of valid syntax
++ `/scores Lakers`
++ `/scores Los Angeles Lakers`
++ `/scores Lakers -d 06-25-2026`
++ `/scores Argentina -plugin fifa`
++ `/scores Lakers -d 2026-06-25 -plugin nba`
+
 ## Plugin Development
 
 The bot supports a plugin system that allows developers to add support for different sports and teams. Here's how to create your own plugin:
@@ -70,6 +87,8 @@ from telegram.ext import CommandHandler
 class YourPlugin(SportsBotPlugin):
     def __init__(self):
         super().__init__()
+        self.name = "Your Plugin"           # display name
+        self.common_name = "yourplugin"     # short name used with `-plugin <name>`
         self.supported_teams = ["Team1", "Team2"]  # List of teams your plugin supports
 
     def get_plugin_name(self) -> str:
@@ -77,6 +96,12 @@ class YourPlugin(SportsBotPlugin):
 
     def is_team_supported(self, team: str) -> bool:
         return team in self.supported_teams
+
+    async def get_live_scores(self, team, game_date=None, extra_params=None):
+        # `extra_params` is a dict of any `-flag value` pairs the user passed
+        # to `/scores` that aren't reserved (`-d`, `-plugin`). Interpret them
+        # however your plugin needs to.
+        ...
 
     def get_handlers(self):
         return [
@@ -97,7 +122,26 @@ Your plugin must implement the following methods from `SportsBotPlugin`:
 
 - `get_plugin_name()`: Returns the name of your plugin
 - `is_team_supported(team)`: Returns whether your plugin supports a given team
+- `get_live_scores(team, game_date=None, extra_params=None)`: Returns the
+  scores for the team. `extra_params` is a `dict[str, str]` of any non-reserved
+  flags the user passed to `/scores`.
 - `get_handlers()`: Returns a list of Telegram command handlers
+
+### Plugin Identification
+
+Each plugin sets two human-readable identifiers on `self`:
+
+- `self.name` — display name used in logs and UI (e.g. `"NBA"`, `"FIFA World Cup"`).
+- `self.common_name` — short, lower-case slug used by users with the
+  `-plugin <name>` flag to target this plugin explicitly (e.g. `"nba"`,
+  `"fifa"`). Pick something unique across installed plugins.
+
+### Custom `/scores` Parameters
+
+The core bot reserves the `-d` (date) and `-plugin` flags. Any other
+`-flag value` pairs the user includes on `/scores` are collected into the
+`extra_params` dict and forwarded to your plugin's `get_live_scores`. Flag
+values may span multiple tokens — parsing stops at the next `-flag`.
 
 ### Installing Your Plugin
 
