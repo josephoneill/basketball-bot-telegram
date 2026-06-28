@@ -23,13 +23,13 @@ def generate_score_img(team_scores: MatchScores):
     home_team_img = generate_team_image(
         img,
         team_scores.home_team,
-        f"({team_scores.home_team_record})",
+        f"({team_scores.home_team_record})" if team_scores.home_team_record else "",
         logo_url=getattr(team_scores, "home_team_logo_url", None),
     )
     away_team_img = generate_team_image(
         img,
         team_scores.away_team,
-        f"({team_scores.away_team_record})",
+        f"({team_scores.away_team_record})" if team_scores.away_team_record else "",
         True,
         logo_url=getattr(team_scores, "away_team_logo_url", None),
     )

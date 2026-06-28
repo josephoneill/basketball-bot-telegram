@@ -96,6 +96,30 @@ class PluginManager:
         return cls._plugin_instances.get(plugin_name)
 
     @classmethod
+    def find_plugin_by_common_name(cls, common_name: str) -> Optional[SportsBotPlugin]:
+        """
+        Find a plugin by its user-facing common name (case-insensitive).
+
+        Each plugin can register a short ``common_name`` (e.g. ``"nba"``,
+        ``"fifa"``) so users can target it explicitly via the ``-plugin`` flag.
+
+        Args:
+            common_name: Common name to match against ``plugin.common_name``.
+
+        Returns:
+            Plugin instance whose common name matches, or None if not found.
+        """
+        cls._initialize()
+        if not common_name:
+            return None
+        target = common_name.strip().lower()
+        for plugin in cls._plugin_instances.values():
+            plugin_common = (getattr(plugin, "common_name", "") or "").strip().lower()
+            if plugin_common and plugin_common == target:
+                return plugin
+        return None
+
+    @classmethod
     def get_all_plugins(cls) -> List[SportsBotPlugin]:
         """Get all available plugin instances"""
         cls._initialize()

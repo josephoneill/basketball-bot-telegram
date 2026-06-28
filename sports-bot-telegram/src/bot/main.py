@@ -35,6 +35,61 @@ def get_formatted_input_message(msg):
     input_msg = msg.lower()
     return input_msg.replace(input_msg[0:input_msg.find(' ') + 1], '')
 
+
+def parse_command_args(text):
+    """
+    Parse a command argument string into a positional value and flag params.
+
+    Format:
+        <positional words...> [-flag value words...]*
+
+    The positional value is all text up until the first ``-flag`` token; every
+    subsequent ``-flag`` consumes tokens until the next ``-flag``, joining them
+    into a single space-separated value.
+
+    Args:
+        text: The raw argument text (already stripped of the command name).
+
+    Returns:
+        Tuple of (positional, params) where ``positional`` is the leading
+        non-flag text (e.g. a team name) and ``params`` is a dict mapping flag
+        names (without the leading ``-``) to their joined string value.
+    """
+    tokens = text.split()
+    positional_parts: List[str] = []
+    params: Dict[str, str] = {}
+    current_flag = None
+    current_values: List[str] = []
+
+    def commit():
+        if current_flag is None:
+            positional_parts.extend(current_values)
+        else:
+            params[current_flag] = ' '.join(current_values)
+
+    for tok in tokens:
+        if tok.startswith('-') and len(tok) > 1 and not tok[1].isdigit():
+            commit()
+            current_flag = tok[1:].lower()
+            current_values = []
+        else:
+            current_values.append(tok)
+    commit()
+
+    return ' '.join(positional_parts), params
+
+
+def parse_date_param(raw_date):
+    """Normalize a user-supplied date string to ``MM-DD-YYYY`` or return None."""
+    if not raw_date:
+        return None
+    for fmt in ("%m-%d-%Y", "%m-%d-%y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(raw_date, fmt).strftime("%m-%d-%Y")
+        except ValueError:
+            continue
+    return None
+
 def get_player_name_and_years(msg, id=-1, start_year=-1, end_year=-1):
     if id != -1:
         return id, start_year, end_year
@@ -84,43 +139,40 @@ async def version_command_handler(update, context):
     )
 
 async def scores_command_handler(update, context):
-    formatted_message = get_formatted_input_message(update.message.text).split()
-    team = formatted_message[0]
-    game_date = None
-    if len(formatted_message) > 1:
-        game_date = formatted_message[1]
+    raw_args = get_formatted_input_message(update.message.text)
+    team, params = parse_command_args(raw_args)
 
-    plugin = await PluginManager.find_plugin_for_team(team)
+    if not team:
+        await context.bot.send_message(
+            chat_id=update.message.chat_id,
+            text="Please provide a team name. Usage: /scores <team> [-d <date>] [-plugin <name>]"
+        )
+        return
+
+    raw_date = params.pop('d', None)
+    plugin_common_name = params.pop('plugin', None)
+    extra_params = params  # everything else is passed through to the plugin
+
+    if plugin_common_name:
+        plugin = PluginManager.find_plugin_by_common_name(plugin_common_name)
+    else:
+        plugin = await PluginManager.find_plugin_for_team(team)
+
     if not plugin:
         await context.bot.send_message(
-            chat_id=update.message.chat_id, 
+            chat_id=update.message.chat_id,
             text="Sorry, I couldn't find a supported team with that name"
         )
         return
 
     try:
-        if game_date:
-            try:
-                # Try common date formats
-                for fmt in ["%m-%d-%Y", "%m-%d-%y", "%Y-%m-%d"]:
-                    try:
-                        date_obj = datetime.strptime(game_date, fmt)
-                        game_date_obj = date_obj.strftime("%m-%d-%Y")
-                        break
-                    except ValueError:
-                        continue
-                else:
-                    game_date_obj = None
-            except Exception:
-                game_date_obj = None
-        else:
-            game_date_obj = None
-        team_scores = await plugin.get_live_scores(team, game_date_obj)
-        
+        game_date_obj = parse_date_param(raw_date)
+        team_scores = await plugin.get_live_scores(team, game_date_obj, extra_params)
+
         if not team_scores:
             await context.bot.send_message(
                 chat_id=update.message.chat_id,
-                text=f"No games found for {team}" + (f" on {game_date}" if game_date else "")
+                text=f"No games found for {team}" + (f" on {raw_date}" if raw_date else "")
             )
             return
 
