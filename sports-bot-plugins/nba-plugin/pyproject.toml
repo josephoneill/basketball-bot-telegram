@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nba-plugin"
-version = "1.1.4"
+version = "1.2.0"
 description = "NBA plugin for sports-bot-telegram"
 authors = ["josephoneill <devjoseph97@gmail.com>"]
 readme = "README.md"

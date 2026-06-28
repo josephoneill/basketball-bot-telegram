@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fifa-world-cup-plugin"
-version = "0.1.0"
+version = "1.2.0"
 description = "FIFA world cupt plugin for sports-bot-telegram"
 authors = ["josephoneill <devjoseph97@gmail.com>"]
 readme = "README.md"

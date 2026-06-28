@@ -7,5 +7,5 @@ A plugin that provides NBA team scores and player statistics.
 
 from .plugin import NBAPlugin, register_plugin
 
-__version__ = "1.1.6"
+__version__ = "1.2.0"
 __all__ = ["NBAPlugin", "register_plugin"] 

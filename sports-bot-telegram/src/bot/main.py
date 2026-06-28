@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 try:
     BOT_VERSION = version("sports-bot-telegram")
 except PackageNotFoundError:
-    BOT_VERSION = "1.1.4"
+    BOT_VERSION = "1.2.0"
 
 async def start(update, context):
     # This is the unicode for a cowboy :)

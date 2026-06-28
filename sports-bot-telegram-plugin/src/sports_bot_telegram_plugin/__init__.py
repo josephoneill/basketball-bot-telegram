@@ -7,5 +7,5 @@ This package provides the interface for creating plugins for the sports-bot-tele
 
 from .plugin import SportsBotPlugin
 
-__version__ = "1.1.3"
+__version__ = "1.2.0"
 __all__ = ["SportsBotPlugin"] 
