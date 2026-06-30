@@ -38,11 +38,22 @@ class LiveScoreService():
       home_team = match.get('competitors')[0]
       away_team = match.get('competitors')[1]
 
+      shootout_score_home = home_team.get('shootoutScore', 0)
+      shootout_score_away = away_team.get('shootoutScore', 0)
+
+      home_score = next((stat.get('displayValue') for stat in home_team.get('statistics', []) if stat.get('name') == 'totalGoals'), 0)
+      away_score = next((stat.get('displayValue') for stat in away_team.get('statistics', []) if stat.get('name') == 'totalGoals'), 0)
+
+      # If the match is in a shootout, add the shootout scores in parentheses
+      if shootout_score_home > 0 or shootout_score_away > 0:
+          home_score = f"{home_score} ({shootout_score_home})"
+          away_score = f"{away_score} ({shootout_score_away})"
+
       return MatchScores(
         home_team=home_team.get('team').get('displayName'),
         away_team=away_team.get('team').get('displayName'),
-        home_score=next((stat.get('displayValue') for stat in home_team.get('statistics', []) if stat.get('name') == 'totalGoals'), 0),
-        away_score=next((stat.get('displayValue') for stat in away_team.get('statistics', []) if stat.get('name') == 'totalGoals'), 0),
+        home_score=home_score,
+        away_score=away_score,
         game_curr_time=self.fifa_utils.get_match_time(match),
         game_status=self.fifa_utils.get_match_status(match),
         game_start_time=timestamp_to_eastern(match.get('startDate')),
