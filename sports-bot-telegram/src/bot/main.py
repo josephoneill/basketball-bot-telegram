@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import List, Dict
 
 import telegram
-from pytz import timezone
 from telegram import InlineQueryResultArticle, InputTextMessageContent, BotCommand
 from telegram.ext import CommandHandler, ApplicationBuilder, MessageHandler
 from telegram.ext import InlineQueryHandler
@@ -19,6 +18,7 @@ import asyncio
 # setup logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
+logging.getLogger('httpx').setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
@@ -337,8 +337,21 @@ async def post_init(application):
     await set_commands(application)
 
 
+async def error_handler(update, context):
+    error = context.error
+    if update is None and isinstance(error, telegram.error.NetworkError):
+        logger.warning(
+            "Telegram polling connection failed (%s). Polling will retry automatically.",
+            type(error).__name__,
+        )
+        return
+
+    logger.error("Unhandled bot error", exc_info=(type(error), error, error.__traceback__))
+
+
 def main():
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(post_init).build()
+    application.add_error_handler(error_handler)
 
     # Register core handlers
     start_handler = CommandHandler('start', start)
