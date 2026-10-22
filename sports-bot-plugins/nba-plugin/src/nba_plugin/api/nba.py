@@ -4,8 +4,8 @@ import uuid
 from datetime import datetime
 from nba_plugin.util.utils import get_current_eastern_time
 from nba_api.live.nba.endpoints import ScoreBoard, BoxScore
-from nba_api.stats.endpoints import ScoreboardV2, LeagueStandingsV3, TeamGameLog, PlayerGameLog, PlayerProfileV2
-from ..util.nba_utils import get_headers
+from nba_api.stats.endpoints import ScoreboardV3, LeagueStandingsV3, TeamGameLog, PlayerGameLog, PlayerProfileV2
+from ..util.nba_utils import get_headers, game_clock_to_mm_ss
 import socket
 
 def create_request(url, host='stats.nba.com', referer='https://stats.nba.com/'):
@@ -33,10 +33,32 @@ def get_live_scoreboard(date=None):
         return None
 
 def get_scoreboard(date=None):
+    """Fetch V3 games as the GameHeader fields used by the bot services."""
     curr_date = date if date is not None else str(get_current_eastern_time()).split()[0]
+    if isinstance(curr_date, datetime):
+        curr_date = curr_date.strftime("%Y-%m-%d")
     try:
-        score_board = ScoreboardV2(game_date=curr_date)
-        return score_board.get_dict()
+        score_board = ScoreboardV3(game_date=curr_date)
+        games = score_board.get_dict()["scoreboard"]["games"]
+        return {
+            "resultSets": [{
+                "name": "GameHeader",
+                "headers": [
+                    "GAME_ID", "HOME_TEAM_ID", "VISITOR_TEAM_ID",
+                    "GAME_STATUS_TEXT", "LIVE_PC_TIME",
+                ],
+                "rowSet": [
+                    [
+                        game["gameId"],
+                        game["homeTeam"]["teamId"],
+                        game["awayTeam"]["teamId"],
+                        game["gameStatusText"],
+                        game_clock_to_mm_ss(game.get("gameClock") or ""),
+                    ]
+                    for game in games
+                ],
+            }],
+        }
     except socket.timeout:
         print("Timeout when connecting to NBA stats API")
         return None
