@@ -5,4 +5,4 @@ Sports Bot Telegram Bot
 A Telegram bot for sports information.
 """
 
-__version__ = "1.1.3" 
+__version__ = "1.2.3" 

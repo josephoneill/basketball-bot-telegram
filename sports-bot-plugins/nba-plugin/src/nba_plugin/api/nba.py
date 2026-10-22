@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from nba_plugin.util.utils import get_current_eastern_time
 from nba_api.live.nba.endpoints import ScoreBoard, BoxScore
-from nba_api.stats.endpoints import ScoreboardV3, LeagueStandingsV3, TeamGameLog, PlayerGameLog, PlayerProfileV2
+from nba_api.stats.endpoints import ScoreboardV3, BoxScoreSummaryV3, LeagueStandingsV3, TeamGameLog, PlayerGameLog, PlayerProfileV2
 from ..util.nba_utils import get_headers, game_clock_to_mm_ss
 import socket
 
@@ -26,14 +26,13 @@ def get_player_career_stats(player_id):
 
 def get_live_scoreboard(date=None):
     try:
-        score_board = ScoreBoard(headers={'Referer': 'https://www.nba.com/'})
+        score_board = ScoreBoard()
         return score_board.get_dict()
     except Exception as e:
         print(f"Error fetching live scoreboard: {e}")
         return None
 
 def get_scoreboard(date=None):
-    """Fetch V3 games as the GameHeader fields used by the bot services."""
     curr_date = date if date is not None else str(get_current_eastern_time()).split()[0]
     if isinstance(curr_date, datetime):
         curr_date = curr_date.strftime("%Y-%m-%d")
@@ -68,12 +67,21 @@ def get_scoreboard(date=None):
     
 def get_boxscore(game_id):
     try:
-        box_score = BoxScore(game_id=game_id, headers={'Referer': 'https://www.nba.com/'})
+        box_score = BoxScore(game_id=game_id)
     except Exception as e:
         print(f"Error fetching boxscore: {e}")
         return None
 
     return box_score.get_dict()
+
+
+def get_boxscore_summary(game_id):
+    try:
+        summary = BoxScoreSummaryV3(game_id=game_id).get_dict()
+        return {"game": summary["boxScoreSummary"]}
+    except Exception as e:
+        print(f"Error fetching boxscore summary {game_id}: {e}")
+        return None
 
 
 def get_team_record(team_id):

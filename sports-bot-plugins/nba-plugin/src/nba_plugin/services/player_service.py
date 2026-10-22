@@ -86,9 +86,11 @@ class PlayerService:
 
         if boxscore:
             stats = await PlayerService._get_stats_from_boxscore(player_id, boxscore)
-        else:
-            # If not, check their game log and report last game
+        if not stats:
             stats = await PlayerService._get_stats_from_gamelog_game(player_id)
+
+        if not stats:
+            return f"No game stats available for {player_name}."
 
         formatted_msg = (
             f"{player_name} {stats.get('has_tense', '')} "
@@ -118,9 +120,11 @@ class PlayerService:
 
         if boxscore:
             stats = await PlayerService._get_stats_from_boxscore(player_id, boxscore)
-        else:
-            # If not, check their game log and report last game
+        if not stats:
             stats = await PlayerService._get_stats_from_gamelog_game(player_id)
+
+        if not stats:
+            return f"No game stats available for {player_name}."
 
         formatted_msg = f"{player_name} {stats.get('has_tense')} shot {stats.get('ftm')}/{stats.get('fta')} FTA"
         if stats.get("game_date"):
@@ -145,40 +149,31 @@ class PlayerService:
     async def _get_stats_from_gamelog_game(player_id):
         reg_log = get_player_gamelog(player_id=player_id)
         post_log = get_player_gamelog(player_id=player_id, season_type="Playoffs")
-        headers = []
 
         def extract_latest(log):
-            nonlocal headers
-            if "resultSets" not in log or len(log["resultSets"]) == 0:
-                return
-        
-            resultSet = log["resultSets"][0]
-            headers = get_headers(resultSet)
-            game = resultSet["rowSet"][0]
+            if not log or not log.get("resultSets"):
+                return None
+            result_set = log["resultSets"][0]
+            if not result_set.get("rowSet"):
+                return None
+            headers = get_headers(result_set)
+            return result_set["rowSet"][0], headers
 
-            return game
-
-        last_reg = extract_latest(reg_log)
-        last_post = extract_latest(post_log)
-
-        game = last_reg
-
-        # Find latest game between regular season and post season
-        if last_reg and last_post:
-            reg_date = datetime.strptime(last_reg[headers['GAME_DATE']], '%b %d, %Y')
-            post_date = datetime.strptime(last_post[headers['GAME_DATE']], '%b %d, %Y')
-            
-            game = last_post if post_date > reg_date else last_reg
-        elif last_post:
-            game = last_post
-
-        stats = get_player_stats_from_gamelog(game, headers)   
-        return stats 
+        games = [game for game in (extract_latest(reg_log), extract_latest(post_log)) if game]
+        if not games:
+            return {}
+        game, headers = max(
+            games,
+            key=lambda entry: datetime.strptime(entry[0][entry[1]["GAME_DATE"]], "%b %d, %Y"),
+        )
+        return get_player_stats_from_gamelog(game, headers)
 
     @staticmethod
     def _find_boxscore_id(player_id):
         team_id = get_player_team(player_id)
         score_board = get_scoreboard()
+        if not score_board:
+            return None, None
         resultSets = score_board["resultSets"]
 
         if not resultSets or len(resultSets) == 0:

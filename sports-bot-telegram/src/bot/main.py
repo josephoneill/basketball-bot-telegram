@@ -207,7 +207,12 @@ async def current_stats_command_handler(update, context, player_id=-1):
         if player_stats_msg == "":
             return
     except Exception as e:
-        logger.debug(f"Plugin failed to get player stats: {str(e)}")
+        logger.exception("Failed to get player stats")
+        await context.bot.send_message(
+            chat_id=update.message.chat_id,
+            text="Sorry, there was an error getting the player stats. Please try again later."
+        )
+        return
     
     await send_player_not_found_message(update, context)
 
