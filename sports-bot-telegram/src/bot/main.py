@@ -177,8 +177,11 @@ async def scores_command_handler(update, context):
             return
 
         scores_sticker = generate_score_img(team_scores)
-        await context.bot.send_sticker(chat_id=update.message.chat_id, sticker=scores_sticker)
-        delete_img(scores_sticker)
+        try:
+            with open(scores_sticker, "rb") as sticker:
+                await context.bot.send_sticker(chat_id=update.message.chat_id, sticker=sticker)
+        finally:
+            delete_img(scores_sticker)
     except Exception as e:
         logger.error(f"Error getting scores: {str(e)}")
         await context.bot.send_message(
