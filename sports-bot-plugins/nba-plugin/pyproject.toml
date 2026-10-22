@@ -10,7 +10,7 @@ packages = [{include = "nba_plugin", from = "src"}]
 python = "^3.12"
 sports-bot-telegram-plugin = {path = "../../sports-bot-telegram-plugin", develop = true}
 python-telegram-bot = "^21.0.0"
-nba-api = "^1.10.2"
+nba-api = "1.11.6"
 
 [build-system]
 requires = ["poetry-core"]
